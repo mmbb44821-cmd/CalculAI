@@ -129,7 +129,7 @@ with st.sidebar:
         
     st.divider()
     st.markdown("### 🤖 **โมเดลที่ใช้งาน**")
-    st.caption("CalculAI Core (Gemini 2.5 Flash)")
+    st.caption("CalculAI Core (Gemini 1.5 Flash)")
     
     st.divider()
     if st.button("🗑️ ล้างประวัติการคุย", use_container_width=True):
@@ -202,7 +202,7 @@ with tab_chat:
                 with st.spinner("🧠 CalculAI กำลังคิดวิธีทำและคำนวณ..."):
                     try:
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-2.5-flash')
+                        model = genai.GenerativeModel('gemini-1.5-flash')
                         response = model.generate_content(sys_prompt)
                         
                         st.markdown(response.text)
@@ -280,7 +280,7 @@ with tab_gen_structured:
             with st.spinner("✨ CalculAI กำลังสร้างชุดโจทย์คุณภาพสูง..."):
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    model = genai.GenerativeModel('gemini-1.5-flash')
                     response = model.generate_content(prompt_gen)
                     
                     st.markdown("---")
@@ -321,7 +321,7 @@ with tab_gen_custom:
             with st.spinner("🪄 CalculAI กำลังรังสรรค์โจทย์ตามสั่ง..."):
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    model = genai.GenerativeModel('gemini-1.5-flash')
                     response = model.generate_content(full_custom_prompt)
                     
                     st.markdown("---")
