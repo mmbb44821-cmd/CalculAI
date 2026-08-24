@@ -32,11 +32,23 @@ if not api_key:
 # กำหนดค่าการเชื่อมต่อ API
 genai.configure(api_key=api_key)
 
-# เรียกใช้โมเดล Gemini 2.5 Flash
+# ฟังก์ชันเลือกโมเดลอัตโนมัติ
+@st.cache_resource
+def get_working_model():
+    candidate_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    for m in candidate_models:
+        try:
+            mod = genai.GenerativeModel(m)
+            # ทดสอบเรียกใช้เบื้องต้น
+            return mod, m
+        except Exception:
+            continue
+    return genai.GenerativeModel('gemini-1.5-flash'), 'gemini-1.5-flash'
+
 try:
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model, model_name = get_working_model()
 except Exception as e:
-    st.error(f"ไม่สามารถโหลดโมเดลได้: {e}")
+    st.error(f"ไม่สามารถเชื่อมต่อ API ได้: {e}")
 
 # แท็บตัวเลือกการใช้งาน
 tab1, tab2, tab3 = st.tabs([
