@@ -32,7 +32,7 @@ if not api_key:
 # กำหนดค่าการเชื่อมต่อ API
 genai.configure(api_key=api_key)
 
-# เรียกใช้โมเดล Gemini รุ่นอัปเดต
+# เรียกใช้โมเดล Gemini 2.5 Flash
 try:
     model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
@@ -55,7 +55,7 @@ with tab1:
     if col2.button("📊 หาอนุพันธ์: f(x) = 3x² + 5x - 2"):
         prompt_input = "ช่วยหาอนุพันธ์ของ f(x) = 3x² + 5x - 2 พร้อมอธิบายสเต็ป"
     if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
-        prompt_input = "แต่งโจทย์ปัญหาเรื่องการบวกเศษส่วนสำหรับนักเรียน ป.5 พร้อมเฉลย"
+        prompt_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
     user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input)
     
