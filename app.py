@@ -1,8 +1,8 @@
 import time
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
-# ตั้งค่าหน้าเว็บ Streamlit
+# ตั้งค่าหน้าเว็บ
 st.set_page_config(
     page_title="CalculAI - ผู้ช่วยคณิตศาสตร์",
     page_icon="⚡",
@@ -12,7 +12,7 @@ st.set_page_config(
 # ดึง API Key จาก Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# แถบด้านข้าง (Sidebar) สำหรับจัดการ API Key
+# แถบด้านข้าง (Sidebar)
 with st.sidebar:
     st.header("⚙️ การตั้งค่าระบบ")
     if api_key:
@@ -25,40 +25,45 @@ with st.sidebar:
 st.title("⚡ CalculAI")
 st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
 
-# ตรวจสอบว่ามี API Key หรือไม่
 if not api_key:
     st.warning("⚠️ กรุณาระบุ Gemini API Key ในแถบด้านข้างก่อนใช้งานครับ")
     st.stop()
 
-genai.configure(api_key=api_key)
+# สร้าง Client ด้วย SDK ตัวใหม่ล่าสุด (google-genai)
+try:
+    client = genai.Client(api_key=api_key)
+except Exception as e:
+    st.error(f"ไม่สามารถเชื่อมต่อระบบได้: {e}")
+    st.stop()
 
-# ฟังก์ชันจัดการยิงคำถาม + ระบบ Auto-Retry ป้องกัน Error 429
+# ฟังก์ชันดึงคำตอบ พร้อมระบบสลับโมเดลและลองใหม่อัตโนมัติ
 def generate_response(prompt_text):
-    # ลำดับโมเดลที่จะทดลองใช้งาน
-    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-pro']
+    # รายชื่อโมเดลที่จะเรียงลำดับลองใช้
+    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']
     
     for model_name in models_to_try:
-        model = genai.GenerativeModel(model_name)
-        # พยายามยิงคำถามสูงสุด 3 ครั้ง หากติด Quota (Error 429)
-        for attempt in range(3):
+        for attempt in range(2): # ลองยิงซ้ำโมเดลละ 2 ครั้งกรณีติด Quota
             try:
-                res = model.generate_content(prompt_text)
-                return res.text
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt_text,
+                )
+                if response and response.text:
+                    return response.text
             except Exception as e:
                 err_str = str(e)
-                # ถ้าติดเรื่อง Quota หรือ Rate Limit ให้รอสักครู่แล้วลองใหม่
-                if "429" in err_str or "Quota" in err_str or "limit" in err_str:
-                    if attempt < 2:
-                        time.sleep(5)  # รอ 5 วินาทีแล้วยิงซ้ำ
-                        continue
-                    else:
-                        st.warning("⏳ โควตา API ฟรีเต็มชั่วคราว (Free Tier Limit) กรุณารอประมาณ 20-30 วินาที แล้วลองกดส่งใหม่อีกครั้งครับ")
-                        return None
-                elif "404" in err_str:
-                    # ถ้าโมเดลนี้ไม่พบ ให้เปลี่ยนไปลองโมเดลถัดไป
+                # ถ้าติดโควตา (429/Quota) ให้รอ 4 วินาทีแล้วลองใหม่
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "Quota" in err_str:
+                    time.sleep(4)
+                    continue
+                # ถ้าโมเดลไม่มีอยู่จริง (404) ให้ข้ามไปลองโมเดลถัดไป
+                elif "404" in err_str or "NOT_FOUND" in err_str:
                     break
                 else:
-                    raise e
+                    st.error(f"เกิดข้อผิดพลาดจาก API ({model_name}): {err_str}")
+                    return None
+                    
+    st.warning("⏳ ขณะนี้โควตา API ฟรีเต็มชั่วคราว กรุณารอประมาณ 30 วินาที แล้วกดใหม่อีกครั้งครับ")
     return None
 
 # แท็บตัวเลือกการใช้งาน
@@ -83,18 +88,15 @@ with tab1:
     if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
         prompt_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
-    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input, key="chat_input")
+    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", value=prompt_input, key="chat_input")
     
-    if st.button("ส่งคำถาม", type="primary", key="btn_chat") or (user_query and user_query != prompt_input):
+    if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
         if user_query:
-            with st.spinner("กำลังคิดหาคำตอบ... (หากติดโควตาระบบจะพยายามให้อัตโนมัติ)"):
-                try:
-                    output = generate_response(user_query)
-                    if output:
-                        st.markdown("### 📝 คำตอบและวิธีทำ:")
-                        st.write(output)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+            with st.spinner("กำลังประมวลผลคำตอบ..."):
+                output = generate_response(user_query)
+                if output:
+                    st.markdown("### 📝 คำตอบและวิธีทำ:")
+                    st.write(output)
 
 # =========================================================
 # TAB 2: STRUCTURED GENERATOR
@@ -115,13 +117,10 @@ with tab2:
         else:
             prompt_t2 = f"สร้างโจทย์คณิตศาสตร์ ระดับ {grade} เรื่อง {topic} จำนวน {num_q} ข้อ {'พร้อมเฉลยละเอียด' if show_sol else 'ไม่ต้องมีเฉลย'}"
             with st.spinner("กำลังสร้างชุดโจทย์..."):
-                try:
-                    output = generate_response(prompt_t2)
-                    if output:
-                        st.markdown("---")
-                        st.write(output)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                output = generate_response(prompt_t2)
+                if output:
+                    st.markdown("---")
+                    st.write(output)
 
 # =========================================================
 # TAB 3: CUSTOM PROMPT GENERATOR
@@ -134,10 +133,7 @@ with tab3:
             st.warning("กรุณากรอกคำสั่งก่อนครับ")
         else:
             with st.spinner("กำลังสร้างโจทย์ตามสั่ง..."):
-                try:
-                    output = generate_response(custom_p)
-                    if output:
-                        st.markdown("---")
-                        st.write(output)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                output = generate_response(custom_p)
+                if output:
+                    st.markdown("---")
+                    st.write(output)
