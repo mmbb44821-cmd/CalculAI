@@ -1,14 +1,15 @@
+import time
 import streamlit as st
 import google.generativeai as genai
 
-# ตั้งค่าหน้าเว็บ
+# ตั้งค่าหน้าเว็บ Streamlit
 st.set_page_config(
     page_title="CalculAI - ผู้ช่วยคณิตศาสตร์",
     page_icon="⚡",
     layout="wide"
 )
 
-# ดึง API Key จาก Secrets หลังบ้าน
+# ดึง API Key จาก Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
 # แถบด้านข้าง (Sidebar) สำหรับจัดการ API Key
@@ -24,26 +25,41 @@ with st.sidebar:
 st.title("⚡ CalculAI")
 st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
 
-# ตรวจสอบ API Key
+# ตรวจสอบว่ามี API Key หรือไม่
 if not api_key:
     st.warning("⚠️ กรุณาระบุ Gemini API Key ในแถบด้านข้างก่อนใช้งานครับ")
     st.stop()
 
 genai.configure(api_key=api_key)
 
-# ฟังก์ชันจัดการยิงคำถาม + ระบบดักจับ Quota Limit (Error 429)
+# ฟังก์ชันจัดการยิงคำถาม + ระบบ Auto-Retry ป้องกัน Error 429
 def generate_response(prompt_text):
-    try:
-        model = genai.GenerativeModel('gemini-3.6-flash')
-        res = model.generate_content(prompt_text)
-        return res.text
-    except Exception as e:
-        error_msg = str(e)
-        if "429" in error_msg or "Quota" in error_msg or "limit" in error_msg:
-            st.warning("⏳ โควตาการส่งคำถามเต็มชั่วคราว (Free Tier Limit) กรุณารอประมาณ 20–30 วินาที แล้วลองกดส่งใหม่อีกครั้งครับ")
-            return None
-        else:
-            raise e
+    # ลำดับโมเดลที่จะทดลองใช้งาน
+    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-pro']
+    
+    for model_name in models_to_try:
+        model = genai.GenerativeModel(model_name)
+        # พยายามยิงคำถามสูงสุด 3 ครั้ง หากติด Quota (Error 429)
+        for attempt in range(3):
+            try:
+                res = model.generate_content(prompt_text)
+                return res.text
+            except Exception as e:
+                err_str = str(e)
+                # ถ้าติดเรื่อง Quota หรือ Rate Limit ให้รอสักครู่แล้วลองใหม่
+                if "429" in err_str or "Quota" in err_str or "limit" in err_str:
+                    if attempt < 2:
+                        time.sleep(5)  # รอ 5 วินาทีแล้วยิงซ้ำ
+                        continue
+                    else:
+                        st.warning("⏳ โควตา API ฟรีเต็มชั่วคราว (Free Tier Limit) กรุณารอประมาณ 20-30 วินาที แล้วลองกดส่งใหม่อีกครั้งครับ")
+                        return None
+                elif "404" in err_str:
+                    # ถ้าโมเดลนี้ไม่พบ ให้เปลี่ยนไปลองโมเดลถัดไป
+                    break
+                else:
+                    raise e
+    return None
 
 # แท็บตัวเลือกการใช้งาน
 tab1, tab2, tab3 = st.tabs([
@@ -71,7 +87,7 @@ with tab1:
     
     if st.button("ส่งคำถาม", type="primary", key="btn_chat") or (user_query and user_query != prompt_input):
         if user_query:
-            with st.spinner("กำลังคิดหาคำตอบ..."):
+            with st.spinner("กำลังคิดหาคำตอบ... (หากติดโควตาระบบจะพยายามให้อัตโนมัติ)"):
                 try:
                     output = generate_response(user_query)
                     if output:
