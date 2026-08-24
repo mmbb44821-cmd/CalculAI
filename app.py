@@ -1,4 +1,3 @@
-import time
 import streamlit as st
 import google.generativeai as genai
 
@@ -9,10 +8,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# ดึง API Key จาก Secrets
+# ดึง API Key จาก Secrets หลังบ้านก่อน (ถ้ามี)
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# แถบด้านข้าง (Sidebar)
+# แถบด้านข้าง (Sidebar) สำหรับจัดการ API Key
 with st.sidebar:
     st.header("⚙️ การตั้งค่าระบบ")
     if api_key:
@@ -25,45 +24,34 @@ with st.sidebar:
 st.title("⚡ CalculAI")
 st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
 
+# ตรวจสอบ API Key ก่อนเริ่มทำงาน
 if not api_key:
     st.warning("⚠️ กรุณาระบุ Gemini API Key ในแถบด้านข้างก่อนใช้งานครับ")
     st.stop()
 
-# ตั้งค่า API Key
+# กำหนดค่าการเชื่อมต่อ API
 genai.configure(api_key=api_key)
 
-# ฟังก์ชันดึงคำตอบ รองรับการสลับโมเดลและจัดการเรื่อง Quota (Error 429)
-def generate_response(prompt_text):
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            for attempt in range(2):
-                try:
-                    res = model.generate_content(prompt_text)
-                    if res and res.text:
-                        return res.text
-                except Exception as inner_e:
-                    err_str = str(inner_e)
-                    if "429" in err_str or "Quota" in err_str or "limit" in err_str:
-                        time.sleep(3)
-                        continue
-                    else:
-                        raise inner_e
-        except Exception as e:
-            err_str = str(e)
-            if "404" in err_str or "not found" in err_str:
-                continue
-            elif "429" in err_str or "Quota" in err_str:
-                st.warning("⏳ โควตา API ฟรีเต็มชั่วคราว (Free Tier Limit) กรุณารอประมาณ 20-30 วินาที แล้วลองกดใหม่อีกครั้งครับ")
-                return None
-            else:
-                st.error(f"เกิดข้อผิดพลาด: {err_str}")
-                return None
+# ฟังก์ชันดึงโมเดล (เน้น gemini-3.6-flash ตามที่ API แจ้ง)
+def get_model():
+    # 1. ลองใช้ gemini-3.6-flash ตามคำแนะนำของ API
+    try:
+        return genai.GenerativeModel('gemini-3.6-flash')
+    except Exception:
+        pass
 
-    st.warning("⏳ ขณะนี้บริการ API หนาแน่น กรุณารอ 20 วินาที แล้วลองส่งคำถามอีกครั้งครับ")
-    return None
+    # 2. ถ้าไม่ผ่าน ให้ค้นหาโมเดลที่ใช้งานได้ในบัญชีของคุณอัตโนมัติ
+    try:
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        if models:
+            return genai.GenerativeModel(models[0])
+    except Exception:
+        pass
+
+    # 3. สำรองกรณีสุดท้าย
+    return genai.GenerativeModel('gemini-1.5-flash')
+
+model = get_model()
 
 # แท็บตัวเลือกการใช้งาน
 tab1, tab2, tab3 = st.tabs([
@@ -87,15 +75,17 @@ with tab1:
     if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
         prompt_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
-    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", value=prompt_input, key="chat_input")
+    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input, key="chat_input")
     
-    if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
+    if st.button("ส่งคำถาม", type="primary", key="btn_chat") or (user_query and user_query != prompt_input):
         if user_query:
             with st.spinner("กำลังคิดหาคำตอบ..."):
-                output = generate_response(user_query)
-                if output:
+                try:
+                    response = model.generate_content(user_query)
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
-                    st.write(output)
+                    st.write(response.text)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
 
 # =========================================================
 # TAB 2: STRUCTURED GENERATOR
@@ -116,10 +106,12 @@ with tab2:
         else:
             prompt_t2 = f"สร้างโจทย์คณิตศาสตร์ ระดับ {grade} เรื่อง {topic} จำนวน {num_q} ข้อ {'พร้อมเฉลยละเอียด' if show_sol else 'ไม่ต้องมีเฉลย'}"
             with st.spinner("กำลังสร้างชุดโจทย์..."):
-                output = generate_response(prompt_t2)
-                if output:
+                try:
+                    res = model.generate_content(prompt_t2)
                     st.markdown("---")
-                    st.write(output)
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
 
 # =========================================================
 # TAB 3: CUSTOM PROMPT GENERATOR
@@ -132,7 +124,9 @@ with tab3:
             st.warning("กรุณากรอกคำสั่งก่อนครับ")
         else:
             with st.spinner("กำลังสร้างโจทย์ตามสั่ง..."):
-                output = generate_response(custom_p)
-                if output:
+                try:
+                    res = model.generate_content(custom_p)
                     st.markdown("---")
-                    st.write(output)
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
