@@ -1,6 +1,6 @@
 import time
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(
@@ -29,41 +29,40 @@ if not api_key:
     st.warning("⚠️ กรุณาระบุ Gemini API Key ในแถบด้านข้างก่อนใช้งานครับ")
     st.stop()
 
-# สร้าง Client ด้วย SDK ตัวใหม่ล่าสุด (google-genai)
-try:
-    client = genai.Client(api_key=api_key)
-except Exception as e:
-    st.error(f"ไม่สามารถเชื่อมต่อระบบได้: {e}")
-    st.stop()
+# ตั้งค่า API Key
+genai.configure(api_key=api_key)
 
-# ฟังก์ชันดึงคำตอบ พร้อมระบบสลับโมเดลและลองใหม่อัตโนมัติ
+# ฟังก์ชันดึงคำตอบ รองรับการสลับโมเดลและจัดการเรื่อง Quota (Error 429)
 def generate_response(prompt_text):
-    # รายชื่อโมเดลที่จะเรียงลำดับลองใช้
-    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
     
     for model_name in models_to_try:
-        for attempt in range(2): # ลองยิงซ้ำโมเดลละ 2 ครั้งกรณีติด Quota
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt_text,
-                )
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                err_str = str(e)
-                # ถ้าติดโควตา (429/Quota) ให้รอ 4 วินาทีแล้วลองใหม่
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "Quota" in err_str:
-                    time.sleep(4)
-                    continue
-                # ถ้าโมเดลไม่มีอยู่จริง (404) ให้ข้ามไปลองโมเดลถัดไป
-                elif "404" in err_str or "NOT_FOUND" in err_str:
-                    break
-                else:
-                    st.error(f"เกิดข้อผิดพลาดจาก API ({model_name}): {err_str}")
-                    return None
-                    
-    st.warning("⏳ ขณะนี้โควตา API ฟรีเต็มชั่วคราว กรุณารอประมาณ 30 วินาที แล้วกดใหม่อีกครั้งครับ")
+        try:
+            model = genai.GenerativeModel(model_name)
+            for attempt in range(2):
+                try:
+                    res = model.generate_content(prompt_text)
+                    if res and res.text:
+                        return res.text
+                except Exception as inner_e:
+                    err_str = str(inner_e)
+                    if "429" in err_str or "Quota" in err_str or "limit" in err_str:
+                        time.sleep(3)
+                        continue
+                    else:
+                        raise inner_e
+        except Exception as e:
+            err_str = str(e)
+            if "404" in err_str or "not found" in err_str:
+                continue
+            elif "429" in err_str or "Quota" in err_str:
+                st.warning("⏳ โควตา API ฟรีเต็มชั่วคราว (Free Tier Limit) กรุณารอประมาณ 20-30 วินาที แล้วลองกดใหม่อีกครั้งครับ")
+                return None
+            else:
+                st.error(f"เกิดข้อผิดพลาด: {err_str}")
+                return None
+
+    st.warning("⏳ ขณะนี้บริการ API หนาแน่น กรุณารอ 20 วินาที แล้วลองส่งคำถามอีกครั้งครับ")
     return None
 
 # แท็บตัวเลือกการใช้งาน
@@ -92,7 +91,7 @@ with tab1:
     
     if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
         if user_query:
-            with st.spinner("กำลังประมวลผลคำตอบ..."):
+            with st.spinner("กำลังคิดหาคำตอบ..."):
                 output = generate_response(user_query)
                 if output:
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
