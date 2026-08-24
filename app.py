@@ -32,9 +32,9 @@ if not api_key:
 # กำหนดค่าการเชื่อมต่อ API
 genai.configure(api_key=api_key)
 
-# เรียกใช้โมเดล Gemini 3.6 Flash (ตามที่ระบบ API แนะนำ)
+# เรียกใช้โมเดล Gemini 2.5 Flash
 try:
-    model = genai.GenerativeModel('gemini-3.6-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
     st.error(f"ไม่สามารถโหลดโมเดลได้: {e}")
 
@@ -45,6 +45,9 @@ tab1, tab2, tab3 = st.tabs([
     "🪄 สร้างโจทย์ด้วยพรอมต์อิสระ"
 ])
 
+# =========================================================
+# TAB 1: CHAT & SOLVER
+# =========================================================
 with tab1:
     st.write("💡 **ลองกดถามโจทย์ตัวอย่าง:**")
     col1, col2, col3 = st.columns(3)
@@ -57,14 +60,58 @@ with tab1:
     if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
         prompt_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
-    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input)
+    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input, key="chat_input")
     
-    if st.button("ส่งคำถาม", type="primary") or user_query:
+    if st.button("ส่งคำถาม", type="primary", key="btn_chat") or (user_query and user_query != prompt_input):
         if user_query:
             with st.spinner("กำลังคิดหาคำตอบ..."):
                 try:
                     response = model.generate_content(user_query)
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
                     st.write(response.text)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
+
+# =========================================================
+# TAB 2: STRUCTURED GENERATOR
+# =========================================================
+with tab2:
+    st.markdown("### 🎯 เครื่องมือออกข้อสอบและแบบฝึกหัด")
+    col_g, col_d = st.columns(2)
+    with col_g:
+        grade = st.selectbox("🎓 เลือกระดับชั้น:", [f"ป.{i}" for i in range(1, 7)] + [f"ม.{i}" for i in range(1, 7)])
+        num_q = st.slider("🔢 จำนวนโจทย์ (ข้อ):", 1, 10, 3)
+    with col_d:
+        topic = st.text_input("📚 บทเรียน/เรื่องที่ต้องการ:", placeholder="เช่น สมการ, เวกเตอร์, เศษส่วน")
+        show_sol = st.checkbox("✅ รวมเฉลยละเอียด", value=True)
+
+    if st.button("🚀 สร้างโจทย์เลย!", use_container_width=True, key="btn_tab2"):
+        if not topic.strip():
+            st.warning("กรุณากรอกเรื่องที่ต้องการสร้างโจทย์ก่อนครับ")
+        else:
+            prompt_t2 = f"สร้างโจทย์คณิตศาสตร์ ระดับ {grade} เรื่อง {topic} จำนวน {num_q} ข้อ {'พร้อมเฉลยละเอียด' if show_sol else 'ไม่ต้องมีเฉลย'}"
+            with st.spinner("กำลังสร้างชุดโจทย์..."):
+                try:
+                    res = model.generate_content(prompt_t2)
+                    st.markdown("---")
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาด: {e}")
+
+# =========================================================
+# TAB 3: CUSTOM PROMPT GENERATOR
+# =========================================================
+with tab3:
+    st.markdown("### 🪄 สั่งสร้างโจทย์ด้วยคำสั่งอิสระ")
+    custom_p = st.text_area("✍️ พิมพ์คำสั่งสร้างโจทย์ที่ต้องการ:", height=120, placeholder="เช่น ออกโจทย์คณิตตลกร้าย 1 ข้อ เรื่องการคำนวณภาษี พร้อมวิธีคิด")
+    if st.button("✨ สร้างโจทย์ตามสั่ง", use_container_width=True, key="btn_tab3"):
+        if not custom_p.strip():
+            st.warning("กรุณากรอกคำสั่งก่อนครับ")
+        else:
+            with st.spinner("กำลังสร้างโจทย์ตามสั่ง..."):
+                try:
+                    res = model.generate_content(custom_p)
+                    st.markdown("---")
+                    st.write(res.text)
                 except Exception as e:
                     st.error(f"เกิดข้อผิดพลาด: {e}")
