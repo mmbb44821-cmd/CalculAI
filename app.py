@@ -32,9 +32,9 @@ if not api_key:
 # กำหนดค่าการเชื่อมต่อ API
 genai.configure(api_key=api_key)
 
-# เรียกใช้โมเดล Gemini 2.5 Flash
+# เรียกใช้โมเดล Gemini 3.6 Flash (ตามที่ระบบ API แนะนำ)
 try:
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-3.6-flash')
 except Exception as e:
     st.error(f"ไม่สามารถโหลดโมเดลได้: {e}")
 
