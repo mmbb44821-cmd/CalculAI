@@ -1,3 +1,4 @@
+import math
 import streamlit as st
 from openai import OpenAI
 
@@ -8,34 +9,121 @@ st.set_page_config(
     layout="wide"
 )
 
-# ดึง OpenRouter API Key จาก Secrets หลังบ้าน
-api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+# =========================================================
+# SIDEBAR: CALCULATOR (เครื่องคิดเลขคำนวณด้วย Python)
+# =========================================================
+if "calc_expr" not in st.session_state:
+    st.session_state.calc_expr = ""
 
-# แถบด้านข้าง (Sidebar) สำหรับจัดการ API Key
+def calc_append(val):
+    st.session_state.calc_expr += str(val)
+
+def calc_backspace():
+    st.session_state.calc_expr = st.session_state.calc_expr[:-1]
+
+def calc_clear():
+    st.session_state.calc_expr = ""
+
+def calc_eval():
+    expr = st.session_state.calc_expr
+    if not expr:
+        return
+    try:
+        # แปลงสัญลักษณ์เป็นไวยากรณ์ Python
+        safe_expr = expr.replace("×", "*").replace("÷", "/")
+        safe_expr = safe_expr.replace("%", "/100")
+
+        # จัดการ Factorial (n!) เช่น 5! -> math.factorial(5)
+        import re
+        safe_expr = re.sub(r'(\d+)!', r'math.factorial(\1)', safe_expr)
+        # จัดการ Absolute Value |x| -> abs(x)
+        safe_expr = re.sub(r'\|([^|]+)\|', r'abs(\1)', safe_expr)
+
+        # นิยามฟังก์ชันปลอดภัยสำหรับ eval
+        allowed_globals = {"__builtins__": None, "math": math, "abs": abs}
+        res = eval(safe_expr, allowed_globals)
+
+        # จัดการแสดงผลตัวเลข
+        if isinstance(res, float) and res.is_integer():
+            res = int(res)
+        st.session_state.calc_expr = str(res)
+    except Exception:
+        st.session_state.calc_expr = "Error"
+
 with st.sidebar:
-    st.header("⚙️ การตั้งค่าระบบ")
-    if api_key:
-        st.success("🟢 ดึง OpenRouter API Key สำเร็จ")
-    else:
-        user_key = st.text_input("🔑 ใส่ OpenRouter API Key:", type="password")
-        if user_key:
-            api_key = user_key
+    st.header("🧮 เครื่องคิดเลข")
+    
+    # จอแสดงผลเครื่องคิดเลข
+    st.text_input("หน้าจอ", value=st.session_state.calc_expr, key="calc_display", disabled=True)
 
+    # ปุ่มกดเครื่องคิดเลข (จัดเรียงแบบตาราง)
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("C", use_container_width=True): calc_clear()
+    if c2.button("⌫", use_container_width=True): calc_backspace()
+    if c3.button("(", use_container_width=True): calc_append("(")
+    if c4.button(")", use_container_width=True): calc_append(")")
+
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("|x|", use_container_width=True): calc_append("|")
+    if c2.button("n!", use_container_width=True): calc_append("!")
+    if c3.button("√", use_container_width=True): calc_append("math.sqrt(")
+    if c4.button("÷", use_container_width=True): calc_append("÷")
+
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("7", use_container_width=True): calc_append("7")
+    if c2.button("8", use_container_width=True): calc_append("8")
+    if c3.button("9", use_container_width=True): calc_append("9")
+    if c4.button("×", use_container_width=True): calc_append("×")
+
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("4", use_container_width=True): calc_append("4")
+    if c2.button("5", use_container_width=True): calc_append("5")
+    if c3.button("6", use_container_width=True): calc_append("6")
+    if c4.button("-", use_container_width=True): calc_append("-")
+
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("1", use_container_width=True): calc_append("1")
+    if c2.button("2", use_container_width=True): calc_append("2")
+    if c3.button("3", use_container_width=True): calc_append("3")
+    if c4.button("+", use_container_width=True): calc_append("+")
+
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("0", use_container_width=True): calc_append("0")
+    if c2.button(".", use_container_width=True): calc_append(".")
+    if c3.button("%", use_container_width=True): calc_append("%")
+    if c4.button("^", use_container_width=True): calc_append("**")
+
+    if st.button("=", type="primary", use_container_width=True):
+        calc_eval()
+
+    st.markdown("---")
+    st.caption("💡 ข้อแนะนำการใช้ปุ่มพิเศษ:")
+    st.caption("• **|x|** : กดเพื่อเปิด/ปิด เช่น `|-5|` -> 5")
+    st.caption("• **√** : พิมพ์ `√9)` หรือกดตามด้วยวงเล็บปิด")
+    st.caption("• **^** : คือการยกกำลัง เช่น `2^3` -> 8")
+
+# =========================================================
+# MAIN CONTENT: AI CALCULAI (Ox Alpha System)
+# =========================================================
 st.title("⚡ CalculAI (Powered by Ox Alpha)")
 st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
 
-# ตรวจสอบ API Key
+# ดึง OpenRouter API Key จาก Secrets
+api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+
 if not api_key:
-    st.warning("⚠️ กรุณาระบุ OpenRouter API Key ในแถบด้านข้างก่อนใช้งานครับ")
+    api_key = st.text_input("🔑 ไม่พบ API Key ใน Secrets กรุณาใส่ OpenRouter API Key:", type="password")
+
+if not api_key:
+    st.warning("⚠️ กรุณาระบุ OpenRouter API Key ก่อนใช้งานระบบ AI ครับ")
     st.stop()
 
-# เชื่อมต่อ Client ไปที่ OpenRouter API
+# เชื่อมต่อ Client
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=api_key,
 )
 
-# ฟังก์ชันดึงคำตอบจากโมเดล Ox Alpha
 def generate_response(prompt_text):
     try:
         response = client.chat.completions.create(
@@ -56,16 +144,14 @@ def generate_response(prompt_text):
         st.error(f"เกิดข้อผิดพลาดในการเรียกใช้ API: {e}")
         return None
 
-# แท็บตัวเลือกการใช้งาน
+# แท็บตัวเลือกการใช้งาน AI
 tab1, tab2, tab3 = st.tabs([
     "💬 แชทถาม-ตอบ & แก้โจทย์", 
     "🎯 เครื่องมือสร้างโจทย์ (ตามระดับ/เรื่อง)", 
     "🪄 สร้างโจทย์ด้วยพรอมต์อิสระ"
 ])
 
-# =========================================================
 # TAB 1: CHAT & SOLVER
-# =========================================================
 with tab1:
     st.write("💡 **ลองกดถามโจทย์ตัวอย่าง:**")
     col1, col2, col3 = st.columns(3)
@@ -78,7 +164,7 @@ with tab1:
     if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
         prompt_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
-    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input, key="chat_input")
+    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", value=prompt_input, key="chat_input")
     
     if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
         if user_query:
@@ -88,9 +174,7 @@ with tab1:
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
                     st.write(output)
 
-# =========================================================
 # TAB 2: STRUCTURED GENERATOR
-# =========================================================
 with tab2:
     st.markdown("### 🎯 เครื่องมือออกข้อสอบและแบบฝึกหัด")
     col_g, col_d = st.columns(2)
@@ -112,9 +196,7 @@ with tab2:
                     st.markdown("---")
                     st.write(output)
 
-# =========================================================
 # TAB 3: CUSTOM PROMPT GENERATOR
-# =========================================================
 with tab3:
     st.markdown("### 🪄 สั่งสร้างโจทย์ด้วยคำสั่งอิสระ")
     custom_p = st.text_area("✍️ พิมพ์คำสั่งสร้างโจทย์ที่ต้องการ:", height=120, placeholder="เช่น ออกโจทย์คณิตตลกร้าย 1 ข้อ เรื่องการคำนวณภาษี พร้อมวิธีคิด")
