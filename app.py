@@ -1,57 +1,60 @@
 import streamlit as st
-import google.generativeai as genai
+from openai import OpenAI
 
-# ตั้งค่าหน้าเว็บ
+# ตั้งค่าหน้าเว็บ Streamlit
 st.set_page_config(
     page_title="CalculAI - ผู้ช่วยคณิตศาสตร์",
     page_icon="⚡",
     layout="wide"
 )
 
-# ดึง API Key จาก Secrets หลังบ้านก่อน (ถ้ามี)
-api_key = st.secrets.get("GEMINI_API_KEY", "")
+# ดึง OpenRouter API Key จาก Secrets หลังบ้าน
+api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # แถบด้านข้าง (Sidebar) สำหรับจัดการ API Key
 with st.sidebar:
     st.header("⚙️ การตั้งค่าระบบ")
     if api_key:
-        st.success("🟢 ดึง Gemini API Key จาก Secrets สำเร็จ")
+        st.success("🟢 ดึง OpenRouter API Key สำเร็จ")
     else:
-        user_key = st.text_input("🔑 ใส่ Gemini API Key:", type="password")
+        user_key = st.text_input("🔑 ใส่ OpenRouter API Key:", type="password")
         if user_key:
             api_key = user_key
 
-st.title("⚡ CalculAI")
+st.title("⚡ CalculAI (Powered by Ox Alpha)")
 st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
 
-# ตรวจสอบ API Key ก่อนเริ่มทำงาน
+# ตรวจสอบ API Key
 if not api_key:
-    st.warning("⚠️ กรุณาระบุ Gemini API Key ในแถบด้านข้างก่อนใช้งานครับ")
+    st.warning("⚠️ กรุณาระบุ OpenRouter API Key ในแถบด้านข้างก่อนใช้งานครับ")
     st.stop()
 
-# กำหนดค่าการเชื่อมต่อ API
-genai.configure(api_key=api_key)
+# เชื่อมต่อ Client ไปที่ OpenRouter API
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
 
-# ฟังก์ชันดึงโมเดล (เน้น gemini-3.6-flash ตามที่ API แจ้ง)
-def get_model():
-    # 1. ลองใช้ gemini-3.6-flash ตามคำแนะนำของ API
+# ฟังก์ชันดึงคำตอบจากโมเดล Ox Alpha
+def generate_response(prompt_text):
     try:
-        return genai.GenerativeModel('gemini-3.6-flash')
-    except Exception:
-        pass
-
-    # 2. ถ้าไม่ผ่าน ให้ค้นหาโมเดลที่ใช้งานได้ในบัญชีของคุณอัตโนมัติ
-    try:
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        if models:
-            return genai.GenerativeModel(models[0])
-    except Exception:
-        pass
-
-    # 3. สำรองกรณีสุดท้าย
-    return genai.GenerativeModel('gemini-1.5-flash')
-
-model = get_model()
+        response = client.chat.completions.create(
+            model="stealth/ox-alpha",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "คุณคือครูสอนคณิตศาสตร์อัจฉริยะ แสดงวิธีทำและอธิบายขั้นตอนการแก้โจทย์อย่างเป็นระบบ เข้าใจง่าย"
+                },
+                {
+                    "role": "user",
+                    "content": prompt_text
+                }
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการเรียกใช้ API: {e}")
+        return None
 
 # แท็บตัวเลือกการใช้งาน
 tab1, tab2, tab3 = st.tabs([
@@ -77,15 +80,13 @@ with tab1:
 
     user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้... (เช่น หาพื้นที่สามเหลี่ยมฐาน 10 สูง 5)", value=prompt_input, key="chat_input")
     
-    if st.button("ส่งคำถาม", type="primary", key="btn_chat") or (user_query and user_query != prompt_input):
+    if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
         if user_query:
-            with st.spinner("กำลังคิดหาคำตอบ..."):
-                try:
-                    response = model.generate_content(user_query)
+            with st.spinner("Ox Alpha กำลังประมวลผลคำตอบ..."):
+                output = generate_response(user_query)
+                if output:
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
-                    st.write(response.text)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    st.write(output)
 
 # =========================================================
 # TAB 2: STRUCTURED GENERATOR
@@ -105,13 +106,11 @@ with tab2:
             st.warning("กรุณากรอกเรื่องที่ต้องการสร้างโจทย์ก่อนครับ")
         else:
             prompt_t2 = f"สร้างโจทย์คณิตศาสตร์ ระดับ {grade} เรื่อง {topic} จำนวน {num_q} ข้อ {'พร้อมเฉลยละเอียด' if show_sol else 'ไม่ต้องมีเฉลย'}"
-            with st.spinner("กำลังสร้างชุดโจทย์..."):
-                try:
-                    res = model.generate_content(prompt_t2)
+            with st.spinner("Ox Alpha กำลังสร้างชุดโจทย์..."):
+                output = generate_response(prompt_t2)
+                if output:
                     st.markdown("---")
-                    st.write(res.text)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    st.write(output)
 
 # =========================================================
 # TAB 3: CUSTOM PROMPT GENERATOR
@@ -123,10 +122,8 @@ with tab3:
         if not custom_p.strip():
             st.warning("กรุณากรอกคำสั่งก่อนครับ")
         else:
-            with st.spinner("กำลังสร้างโจทย์ตามสั่ง..."):
-                try:
-                    res = model.generate_content(custom_p)
+            with st.spinner("Ox Alpha กำลังสร้างโจทย์ตามสั่ง..."):
+                output = generate_response(custom_p)
+                if output:
                     st.markdown("---")
-                    st.write(res.text)
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    st.write(output)
