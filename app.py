@@ -16,14 +16,20 @@ st.set_page_config(
 if "calc_expr" not in st.session_state:
     st.session_state.calc_expr = ""
 
+def sync_input():
+    st.session_state.calc_expr = st.session_state.calc_input_key
+
 def calc_append(val):
     st.session_state.calc_expr += str(val)
+    st.session_state.calc_input_key = st.session_state.calc_expr
 
 def calc_backspace():
     st.session_state.calc_expr = st.session_state.calc_expr[:-1]
+    st.session_state.calc_input_key = st.session_state.calc_expr
 
 def calc_clear():
     st.session_state.calc_expr = ""
+    st.session_state.calc_input_key = ""
 
 def calc_eval():
     expr = st.session_state.calc_expr
@@ -34,9 +40,9 @@ def calc_eval():
         safe_expr = expr.replace("×", "*").replace("÷", "/")
         safe_expr = safe_expr.replace("%", "/100")
 
-        # จัดการ Factorial (n!)
+        # จัดการ Factorial (n!) เช่น 5! -> math.factorial(5)
         safe_expr = re.sub(r'(\d+)!', r'math.factorial(\1)', safe_expr)
-        # จัดการ Absolute Value |x|
+        # จัดการ Absolute Value |x| -> abs(x)
         safe_expr = re.sub(r'\|([^|]+)\|', r'abs(\1)', safe_expr)
 
         # นิยามฟังก์ชันปลอดภัยสำหรับ eval
@@ -47,8 +53,10 @@ def calc_eval():
         if isinstance(res, float) and res.is_integer():
             res = int(res)
         st.session_state.calc_expr = str(res)
+        st.session_state.calc_input_key = str(res)
     except Exception:
         st.session_state.calc_expr = "Error"
+        st.session_state.calc_input_key = "Error"
 
 # =========================================================
 # SIDEBAR: CALCULATOR
@@ -56,58 +64,57 @@ def calc_eval():
 with st.sidebar:
     st.header("🧮 เครื่องคิดเลข")
     
-    # ช่องพิมพ์ (พิมพ์จากแป้นพิมพ์ได้ หรือกดปุ่มบนหน้าจอก็ได้)
-    calc_input = st.text_input(
+    # ช่องพิมพ์ (รองรับทั้งการพิมพ์คีย์บอร์ดและการกดปุ่ม)
+    st.text_input(
         "หน้าจอคำนวณ", 
         value=st.session_state.calc_expr, 
-        key="calc_display"
+        key="calc_input_key",
+        on_change=sync_input
     )
-    st.session_state.calc_expr = calc_input
 
     # ปุ่มกดเครื่องคิดเลข
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("C", use_container_width=True): calc_clear()
-    if c2.button("⌫", use_container_width=True): calc_backspace()
-    if c3.button("(", use_container_width=True): calc_append("(")
-    if c4.button(")", use_container_width=True): calc_append(")")
+    c1.button("C", use_container_width=True, on_click=calc_clear)
+    c2.button("⌫", use_container_width=True, on_click=calc_backspace)
+    c3.button("(", use_container_width=True, on_click=calc_append, args=("(",))
+    c4.button(")", use_container_width=True, on_click=calc_append, args=(")",))
 
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("|x|", use_container_width=True): calc_append("|")
-    if c2.button("n!", use_container_width=True): calc_append("!")
-    if c3.button("√", use_container_width=True): calc_append("math.sqrt(")
-    if c4.button("÷", use_container_width=True): calc_append("÷")
+    c1.button("|x|", use_container_width=True, on_click=calc_append, args=("|",))
+    c2.button("n!", use_container_width=True, on_click=calc_append, args=("!",))
+    c3.button("√", use_container_width=True, on_click=calc_append, args=("math.sqrt(",))
+    c4.button("÷", use_container_width=True, on_click=calc_append, args=("÷",))
 
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("7", use_container_width=True): calc_append("7")
-    if c2.button("8", use_container_width=True): calc_append("8")
-    if c3.button("9", use_container_width=True): calc_append("9")
-    if c4.button("×", use_container_width=True): calc_append("×")
+    c1.button("7", use_container_width=True, on_click=calc_append, args=("7",))
+    c2.button("8", use_container_width=True, on_click=calc_append, args=("8",))
+    c3.button("9", use_container_width=True, on_click=calc_append, args=("9",))
+    c4.button("×", use_container_width=True, on_click=calc_append, args=("×",))
 
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("4", use_container_width=True): calc_append("4")
-    if c2.button("5", use_container_width=True): calc_append("5")
-    if c3.button("6", use_container_width=True): calc_append("6")
-    if c4.button("-", use_container_width=True): calc_append("-")
+    c1.button("4", use_container_width=True, on_click=calc_append, args=("4",))
+    c2.button("5", use_container_width=True, on_click=calc_append, args=("5",))
+    c3.button("6", use_container_width=True, on_click=calc_append, args=("6",))
+    c4.button("-", use_container_width=True, on_click=calc_append, args=("-",))
 
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("1", use_container_width=True): calc_append("1")
-    if c2.button("2", use_container_width=True): calc_append("2")
-    if c3.button("3", use_container_width=True): calc_append("3")
-    if c4.button("+", use_container_width=True): calc_append("+")
+    c1.button("1", use_container_width=True, on_click=calc_append, args=("1",))
+    c2.button("2", use_container_width=True, on_click=calc_append, args=("2",))
+    c3.button("3", use_container_width=True, on_click=calc_append, args=("3",))
+    c4.button("+", use_container_width=True, on_click=calc_append, args=("+",))
 
     c1, c2, c3, c4 = st.columns(4)
-    if c1.button("0", use_container_width=True): calc_append("0")
-    if c2.button(".", use_container_width=True): calc_append(".")
-    if c3.button("%", use_container_width=True): calc_append("%")
-    if c4.button("^", use_container_width=True): calc_append("**")
+    c1.button("0", use_container_width=True, on_click=calc_append, args=("0",))
+    c2.button(".", use_container_width=True, on_click=calc_append, args=(".",))
+    c3.button("%", use_container_width=True, on_click=calc_append, args=("%",))
+    c4.button("^", use_container_width=True, on_click=calc_append, args=("**",))
 
-    if st.button("=", type="primary", use_container_width=True):
-        calc_eval()
+    st.button("=", type="primary", use_container_width=True, on_click=calc_eval)
 
     st.markdown("---")
     st.caption("💡 **วิธีใช้ปุ่มพิเศษ:**")
     st.caption("• **|x|** : ใส่ค่าสัมบูรณ์ เช่น `|-5|` -> 5")
-    st.caption("• **√** : พิมพ์ `math.sqrt(9)` หรือกดปุ่ม `√` แล้วปิดวงเล็บ")
+    st.caption("• **√** : กดปุ่ม `√` แล้วพิมพ์ตัวเลขพร้อมปิดวงเล็บ")
     st.caption("• **^** : คือยกกำลัง เช่น `2**3` -> 8")
 
 # =========================================================
@@ -126,7 +133,7 @@ if not api_key:
     st.warning("⚠️ กรุณาระบุ OpenRouter API Key ก่อนใช้งานระบบ AI ครับ")
     st.stop()
 
-# เชื่อมต่อ Client
+# เชื่อมต่อ Client ไปยัง OpenRouter API
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=api_key,
