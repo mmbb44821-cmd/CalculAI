@@ -65,7 +65,7 @@ def render_calculator():
 
             <button class="calc-btn" data-action="append" data-value="|">|x|</button>
             <button class="calc-btn" data-action="append" data-value="!">n!</button>
-            <button class="calc-btn" data-action="append" data-value="sqrt(">√</button>
+            <button class="calc-btn" data-action="append" data-value="√(">√</button>
             <button class="calc-btn operator" data-action="append" data-value="÷">÷</button>
 
             <button class="calc-btn" data-action="append" data-value="7">7</button>
@@ -123,6 +123,7 @@ def render_calculator():
 
         function normalizeExpression(input) {
             let safeExpr = input.replace(/×/g, '*').replace(/÷/g, '/');
+            safeExpr = safeExpr.replace(/√/g, 'sqrt');
             safeExpr = safeExpr.replace(/Math\.sqrt\(/g, 'sqrt(');
             safeExpr = safeExpr.replace(/sqrt\s*\(/g, 'Math.sqrt(');
             safeExpr = safeExpr.replace(/%/g, '/100');
