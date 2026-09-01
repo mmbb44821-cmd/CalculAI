@@ -31,7 +31,7 @@ def render_calculator():
             color: white;
             border: 1px solid #334155;
             border-radius: 10px;
-            padding: 12px 10px;
+            padding: 10px 10px;
             font-size: 1.1rem;
             text-align: right;
             margin-bottom: 12px;
