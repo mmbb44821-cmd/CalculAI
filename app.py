@@ -20,17 +20,18 @@ def render_calculator():
         body { margin: 0; }
         .calc-shell {
             background: #111827;
-            border-radius: 16px;
-            padding: 14px;
+            border-radius: 14px;
+            padding: 10px;
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.14);
+            max-width: 100%;
         }
         .calc-display {
             width: 100%;
             background: #0f172a;
             color: white;
             border: 1px solid #334155;
-            border-radius: 6px;
+            border-radius: 10px;
             padding: 12px 14px;
             font-size: 1.1rem;
             text-align: right;
