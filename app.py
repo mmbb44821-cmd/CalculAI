@@ -30,8 +30,8 @@ def render_calculator():
             background: #0f172a;
             color: white;
             border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 10px 10px;
+            border-radius: 6px;
+            padding: 12px 14px;
             font-size: 1.1rem;
             text-align: right;
             margin-bottom: 12px;
@@ -167,7 +167,7 @@ def render_calculator():
 
     with st.sidebar:
         st.header("🧮 เครื่องคิดเลข")
-        st.caption("Client-side calculator: กดแล้วคำนวณทันทีบนเว็บ")
+        # st.caption("Client-side calculator: กดแล้วคำนวณทันทีบนเว็บ")
         components.html(calc_html, height=500, scrolling=False)
 
     return "client-side"
