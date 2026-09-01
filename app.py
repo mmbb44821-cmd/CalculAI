@@ -1,6 +1,7 @@
 import math
 import re
-import streamlit as st
+import streamlit as st  # type: ignore[import-not-found]
+import streamlit.components.v1 as components
 from openai import OpenAI
 
 # ตั้งค่าหน้าเว็บ Streamlit
@@ -11,111 +12,154 @@ st.set_page_config(
 )
 
 # =========================================================
-# SYSTEM & CALCULATOR FUNCTIONS
+# CLIENT-SIDE CALCULATOR (browser only)
 # =========================================================
-if "calc_expr" not in st.session_state:
-    st.session_state.calc_expr = ""
+def render_calculator():
+    calc_html = """
+    <style>
+        body { margin: 0; }
+        .calc-shell {
+            background: #111827;
+            border-radius: 16px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+        }
+        .calc-display {
+            width: 100%;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 1.1rem;
+            text-align: right;
+            margin-bottom: 12px;
+        }
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .calc-btn {
+            border: none;
+            border-radius: 10px;
+            padding: 12px 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #1f2937;
+            color: white;
+        }
+        .calc-btn.operator { background: #374151; }
+        .calc-btn.primary { background: #2563eb; }
+        .calc-btn:hover { filter: brightness(1.08); }
+    </style>
+    <div class="calc-shell">
+        <input id="calc-display" class="calc-display" value="" readonly />
+        <div class="calc-grid">
+            <button class="calc-btn operator" data-action="clear">C</button>
+            <button class="calc-btn operator" data-action="backspace">⌫</button>
+            <button class="calc-btn" data-action="append" data-value="(">(</button>
+            <button class="calc-btn" data-action="append" data-value=")">)</button>
 
-def sync_input():
-    st.session_state.calc_expr = st.session_state.calc_input_key
+            <button class="calc-btn" data-action="append" data-value="|">|x|</button>
+            <button class="calc-btn" data-action="append" data-value="!">n!</button>
+            <button class="calc-btn" data-action="append" data-value="Math.sqrt(">√</button>
+            <button class="calc-btn operator" data-action="append" data-value="÷">÷</button>
 
-def calc_append(val):
-    st.session_state.calc_expr += str(val)
-    st.session_state.calc_input_key = st.session_state.calc_expr
+            <button class="calc-btn" data-action="append" data-value="7">7</button>
+            <button class="calc-btn" data-action="append" data-value="8">8</button>
+            <button class="calc-btn" data-action="append" data-value="9">9</button>
+            <button class="calc-btn operator" data-action="append" data-value="×">×</button>
 
-def calc_backspace():
-    st.session_state.calc_expr = st.session_state.calc_expr[:-1]
-    st.session_state.calc_input_key = st.session_state.calc_expr
+            <button class="calc-btn" data-action="append" data-value="4">4</button>
+            <button class="calc-btn" data-action="append" data-value="5">5</button>
+            <button class="calc-btn" data-action="append" data-value="6">6</button>
+            <button class="calc-btn operator" data-action="append" data-value="-">-</button>
 
-def calc_clear():
-    st.session_state.calc_expr = ""
-    st.session_state.calc_input_key = ""
+            <button class="calc-btn" data-action="append" data-value="1">1</button>
+            <button class="calc-btn" data-action="append" data-value="2">2</button>
+            <button class="calc-btn" data-action="append" data-value="3">3</button>
+            <button class="calc-btn operator" data-action="append" data-value="+">+</button>
 
-def calc_eval():
-    expr = st.session_state.calc_expr
-    if not expr:
-        return
-    try:
-        # แปลงสัญลักษณ์เป็นไวยากรณ์ Python
-        safe_expr = expr.replace("×", "*").replace("÷", "/")
-        safe_expr = safe_expr.replace("%", "/100")
+            <button class="calc-btn" data-action="append" data-value="0">0</button>
+            <button class="calc-btn" data-action="append" data-value=".">.</button>
+            <button class="calc-btn" data-action="append" data-value="%">%</button>
+            <button class="calc-btn operator" data-action="append" data-value="**">^</button>
 
-        # จัดการ Factorial (n!) เช่น 5! -> math.factorial(5)
-        safe_expr = re.sub(r'(\d+)!', r'math.factorial(\1)', safe_expr)
-        # จัดการ Absolute Value |x| -> abs(x)
-        safe_expr = re.sub(r'\|([^|]+)\|', r'abs(\1)', safe_expr)
+            <button class="calc-btn primary" style="grid-column: span 4;" data-action="calculate">=</button>
+        </div>
+    </div>
+    <script>
+        const display = document.getElementById('calc-display');
+        let expr = '';
 
-        # นิยามฟังก์ชันปลอดภัยสำหรับ eval
-        allowed_globals = {"__builtins__": None, "math": math, "abs": abs}
-        res = eval(safe_expr, allowed_globals)
+        const factorial = (n) => {
+            let result = 1;
+            for (let i = 2; i <= n; i += 1) result *= i;
+            return result;
+        };
 
-        # จัดการแสดงผลตัวเลข
-        if isinstance(res, float) and res.is_integer():
-            res = int(res)
-        st.session_state.calc_expr = str(res)
-        st.session_state.calc_input_key = str(res)
-    except Exception:
-        st.session_state.calc_expr = "Error"
-        st.session_state.calc_input_key = "Error"
+        function setDisplay(value) {
+            display.value = value;
+            expr = value;
+        }
 
-# =========================================================
-# SIDEBAR: CALCULATOR
-# =========================================================
-with st.sidebar:
-    st.header("🧮 เครื่องคิดเลข")
-    
-    # ช่องพิมพ์ (รองรับทั้งการพิมพ์คีย์บอร์ดและการกดปุ่ม)
-    st.text_input(
-        "หน้าจอคำนวณ", 
-        value=st.session_state.calc_expr, 
-        key="calc_input_key",
-        on_change=sync_input
-    )
+        function appendValue(value) {
+            expr += value;
+            display.value = expr;
+        }
 
-    # ปุ่มกดเครื่องคิดเลข
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("C", use_container_width=True, on_click=calc_clear)
-    c2.button("⌫", use_container_width=True, on_click=calc_backspace)
-    c3.button("(", use_container_width=True, on_click=calc_append, args=("(",))
-    c4.button(")", use_container_width=True, on_click=calc_append, args=(")",))
+        function clearValue() {
+            expr = '';
+            display.value = '';
+        }
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("|x|", use_container_width=True, on_click=calc_append, args=("|",))
-    c2.button("n!", use_container_width=True, on_click=calc_append, args=("!",))
-    c3.button("√", use_container_width=True, on_click=calc_append, args=("math.sqrt(",))
-    c4.button("÷", use_container_width=True, on_click=calc_append, args=("÷",))
+        function backspaceValue() {
+            expr = expr.slice(0, -1);
+            display.value = expr;
+        }
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("7", use_container_width=True, on_click=calc_append, args=("7",))
-    c2.button("8", use_container_width=True, on_click=calc_append, args=("8",))
-    c3.button("9", use_container_width=True, on_click=calc_append, args=("9",))
-    c4.button("×", use_container_width=True, on_click=calc_append, args=("×",))
+        function calculateValue() {
+            if (!expr) return;
+            try {
+                let safeExpr = expr.replace(/×/g, '*').replace(/÷/g, '/');
+                safeExpr = safeExpr.replace(/%/g, '/100');
+                safeExpr = safeExpr.replace(/(\d+)!/g, (_, n) => `factorial(${n})`);
+                safeExpr = safeExpr.replace(/\|([^|]+)\|/g, (_, value) => `Math.abs(${value})`);
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("4", use_container_width=True, on_click=calc_append, args=("4",))
-    c2.button("5", use_container_width=True, on_click=calc_append, args=("5",))
-    c3.button("6", use_container_width=True, on_click=calc_append, args=("6",))
-    c4.button("-", use_container_width=True, on_click=calc_append, args=("-",))
+                const result = Function('factorial', 'Math', `return (${safeExpr});`)(factorial, Math);
+                const finalValue = Number.isInteger(result) ? result : Number(result.toFixed(10));
+                setDisplay(String(finalValue));
+            } catch (error) {
+                setDisplay('Error');
+            }
+        }
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("1", use_container_width=True, on_click=calc_append, args=("1",))
-    c2.button("2", use_container_width=True, on_click=calc_append, args=("2",))
-    c3.button("3", use_container_width=True, on_click=calc_append, args=("3",))
-    c4.button("+", use_container_width=True, on_click=calc_append, args=("+",))
+        document.querySelectorAll('.calc-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const action = button.dataset.action;
+                const value = button.dataset.value || '';
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("0", use_container_width=True, on_click=calc_append, args=("0",))
-    c2.button(".", use_container_width=True, on_click=calc_append, args=(".",))
-    c3.button("%", use_container_width=True, on_click=calc_append, args=("%",))
-    c4.button("^", use_container_width=True, on_click=calc_append, args=("**",))
+                if (action === 'append') appendValue(value);
+                if (action === 'clear') clearValue();
+                if (action === 'backspace') backspaceValue();
+                if (action === 'calculate') calculateValue();
+            });
+        });
+    </script>
+    """
 
-    st.button("=", type="primary", use_container_width=True, on_click=calc_eval)
+    with st.sidebar:
+        st.header("🧮 เครื่องคิดเลข")
+        st.caption("Client-side calculator: กดแล้วคำนวณทันทีบนเว็บ")
+        components.html(calc_html, height=500, scrolling=False)
 
-    st.markdown("---")
-    st.caption("💡 **วิธีใช้ปุ่มพิเศษ:**")
-    st.caption("• **|x|** : ใส่ค่าสัมบูรณ์ เช่น `|-5|` -> 5")
-    st.caption("• **√** : กดปุ่ม `√` แล้วพิมพ์ตัวเลขพร้อมปิดวงเล็บ")
-    st.caption("• **^** : คือยกกำลัง เช่น `2**3` -> 8")
+    return "client-side"
+
+
+render_calculator()
 
 # =========================================================
 # MAIN CONTENT: AI CALCULAI (Ox Alpha System)
