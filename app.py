@@ -121,14 +121,26 @@ def render_calculator():
             display.value = expr;
         }
 
+        function normalizeExpression(input) {
+            let safeExpr = input.replace(/×/g, '*').replace(/÷/g, '/');
+            safeExpr = safeExpr.replace(/sqrt\(/g, 'Math.sqrt(');
+            safeExpr = safeExpr.replace(/%/g, '/100');
+            safeExpr = safeExpr.replace(/(\d+)!/g, (_, n) => `factorial(${n})`);
+            safeExpr = safeExpr.replace(/\|([^|]+)\|/g, (_, value) => `Math.abs(${value})`);
+
+            const openParen = (safeExpr.match(/\(/g) || []).length;
+            const closeParen = (safeExpr.match(/\)/g) || []).length;
+            if (openParen > closeParen) {
+                safeExpr += ')'.repeat(openParen - closeParen);
+            }
+
+            return safeExpr;
+        }
+
         function calculateValue() {
             if (!expr) return;
             try {
-                let safeExpr = expr.replace(/×/g, '*').replace(/÷/g, '/');
-                safeExpr = safeExpr.replace(/%/g, '/100');
-                safeExpr = safeExpr.replace(/(\d+)!/g, (_, n) => `factorial(${n})`);
-                safeExpr = safeExpr.replace(/\|([^|]+)\|/g, (_, value) => `Math.abs(${value})`);
-
+                const safeExpr = normalizeExpression(expr);
                 const result = Function('factorial', 'Math', `return (${safeExpr});`)(factorial, Math);
                 const finalValue = Number.isInteger(result) ? result : Number(result.toFixed(10));
                 setDisplay(String(finalValue));
