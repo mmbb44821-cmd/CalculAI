@@ -21,7 +21,7 @@ def render_calculator():
         .calc-shell {
             background: #111827;
             border-radius: 16px;
-            padding: 14px;
+            padding: 10px;
             border: 1px solid rgba(255,255,255,0.08);
             box-shadow: 0 10px 20px rgba(0,0,0,0.18);
         }
