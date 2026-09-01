@@ -1,6 +1,6 @@
 import math
 import re
-import streamlit as st
+import streamlit as st  # type: ignore[import-not-found]
 from openai import OpenAI
 
 # ตั้งค่าหน้าเว็บ Streamlit
@@ -13,109 +13,123 @@ st.set_page_config(
 # =========================================================
 # SYSTEM & CALCULATOR FUNCTIONS
 # =========================================================
-if "calc_expr" not in st.session_state:
-    st.session_state.calc_expr = ""
+def init_calc_state():
+    if "calc_expr" not in st.session_state:
+        st.session_state.calc_expr = ""
+    if "calc_input_key" not in st.session_state:
+        st.session_state.calc_input_key = ""
+
 
 def sync_input():
-    st.session_state.calc_expr = st.session_state.calc_input_key
+    st.session_state.calc_expr = st.session_state.get("calc_input_key", "")
+
 
 def calc_append(val):
-    st.session_state.calc_expr += str(val)
+    current = st.session_state.get("calc_expr", "")
+    st.session_state.calc_expr = current + str(val)
     st.session_state.calc_input_key = st.session_state.calc_expr
 
+
 def calc_backspace():
-    st.session_state.calc_expr = st.session_state.calc_expr[:-1]
+    current = st.session_state.get("calc_expr", "")
+    st.session_state.calc_expr = current[:-1]
     st.session_state.calc_input_key = st.session_state.calc_expr
+
 
 def calc_clear():
     st.session_state.calc_expr = ""
     st.session_state.calc_input_key = ""
 
-def calc_eval():
-    expr = st.session_state.calc_expr
+
+def evaluate_math_expression(expr: str):
     if not expr:
-        return
+        return ""
     try:
-        # แปลงสัญลักษณ์เป็นไวยากรณ์ Python
         safe_expr = expr.replace("×", "*").replace("÷", "/")
         safe_expr = safe_expr.replace("%", "/100")
-
-        # จัดการ Factorial (n!) เช่น 5! -> math.factorial(5)
         safe_expr = re.sub(r'(\d+)!', r'math.factorial(\1)', safe_expr)
-        # จัดการ Absolute Value |x| -> abs(x)
         safe_expr = re.sub(r'\|([^|]+)\|', r'abs(\1)', safe_expr)
 
-        # นิยามฟังก์ชันปลอดภัยสำหรับ eval
         allowed_globals = {"__builtins__": None, "math": math, "abs": abs}
-        res = eval(safe_expr, allowed_globals)
+        res = eval(safe_expr, allowed_globals, {})
 
-        # จัดการแสดงผลตัวเลข
         if isinstance(res, float) and res.is_integer():
             res = int(res)
-        st.session_state.calc_expr = str(res)
-        st.session_state.calc_input_key = str(res)
+        return str(res)
     except Exception:
-        st.session_state.calc_expr = "Error"
-        st.session_state.calc_input_key = "Error"
+        return "Error"
+
+
+def calc_eval():
+    expr = st.session_state.get("calc_expr", "")
+    st.session_state.calc_expr = evaluate_math_expression(expr)
+    st.session_state.calc_input_key = st.session_state.calc_expr
+
 
 # =========================================================
 # SIDEBAR: CALCULATOR
 # =========================================================
-with st.sidebar:
-    st.header("🧮 เครื่องคิดเลข")
-    
-    # ช่องพิมพ์ (รองรับทั้งการพิมพ์คีย์บอร์ดและการกดปุ่ม)
-    st.text_input(
-        "หน้าจอคำนวณ", 
-        value=st.session_state.calc_expr, 
-        key="calc_input_key",
-        on_change=sync_input
-    )
+def render_calculator():
+    init_calc_state()
 
-    # ปุ่มกดเครื่องคิดเลข
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("C", use_container_width=True, on_click=calc_clear)
-    c2.button("⌫", use_container_width=True, on_click=calc_backspace)
-    c3.button("(", use_container_width=True, on_click=calc_append, args=("(",))
-    c4.button(")", use_container_width=True, on_click=calc_append, args=(")",))
+    with st.sidebar:
+        st.header("🧮 เครื่องคิดเลข")
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("|x|", use_container_width=True, on_click=calc_append, args=("|",))
-    c2.button("n!", use_container_width=True, on_click=calc_append, args=("!",))
-    c3.button("√", use_container_width=True, on_click=calc_append, args=("math.sqrt(",))
-    c4.button("÷", use_container_width=True, on_click=calc_append, args=("÷",))
+        st.text_input(
+            "หน้าจอคำนวณ",
+            value=st.session_state.calc_expr,
+            key="calc_input_key",
+            on_change=sync_input
+        )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("7", use_container_width=True, on_click=calc_append, args=("7",))
-    c2.button("8", use_container_width=True, on_click=calc_append, args=("8",))
-    c3.button("9", use_container_width=True, on_click=calc_append, args=("9",))
-    c4.button("×", use_container_width=True, on_click=calc_append, args=("×",))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("C", use_container_width=True, on_click=calc_clear)
+        c2.button("⌫", use_container_width=True, on_click=calc_backspace)
+        c3.button("(", use_container_width=True, on_click=calc_append, args=("(",))
+        c4.button(")", use_container_width=True, on_click=calc_append, args=(")",))
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("4", use_container_width=True, on_click=calc_append, args=("4",))
-    c2.button("5", use_container_width=True, on_click=calc_append, args=("5",))
-    c3.button("6", use_container_width=True, on_click=calc_append, args=("6",))
-    c4.button("-", use_container_width=True, on_click=calc_append, args=("-",))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("|x|", use_container_width=True, on_click=calc_append, args=("|",))
+        c2.button("n!", use_container_width=True, on_click=calc_append, args=("!",))
+        c3.button("√", use_container_width=True, on_click=calc_append, args=("math.sqrt(",))
+        c4.button("÷", use_container_width=True, on_click=calc_append, args=("÷",))
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("1", use_container_width=True, on_click=calc_append, args=("1",))
-    c2.button("2", use_container_width=True, on_click=calc_append, args=("2",))
-    c3.button("3", use_container_width=True, on_click=calc_append, args=("3",))
-    c4.button("+", use_container_width=True, on_click=calc_append, args=("+",))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("7", use_container_width=True, on_click=calc_append, args=("7",))
+        c2.button("8", use_container_width=True, on_click=calc_append, args=("8",))
+        c3.button("9", use_container_width=True, on_click=calc_append, args=("9",))
+        c4.button("×", use_container_width=True, on_click=calc_append, args=("×",))
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.button("0", use_container_width=True, on_click=calc_append, args=("0",))
-    c2.button(".", use_container_width=True, on_click=calc_append, args=(".",))
-    c3.button("%", use_container_width=True, on_click=calc_append, args=("%",))
-    c4.button("^", use_container_width=True, on_click=calc_append, args=("**",))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("4", use_container_width=True, on_click=calc_append, args=("4",))
+        c2.button("5", use_container_width=True, on_click=calc_append, args=("5",))
+        c3.button("6", use_container_width=True, on_click=calc_append, args=("6",))
+        c4.button("-", use_container_width=True, on_click=calc_append, args=("-",))
 
-    st.button("=", type="primary", use_container_width=True, on_click=calc_eval)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("1", use_container_width=True, on_click=calc_append, args=("1",))
+        c2.button("2", use_container_width=True, on_click=calc_append, args=("2",))
+        c3.button("3", use_container_width=True, on_click=calc_append, args=("3",))
+        c4.button("+", use_container_width=True, on_click=calc_append, args=("+",))
 
-    st.markdown("---")
-    st.caption("💡 **วิธีใช้ปุ่มพิเศษ:**")
-    st.caption("• **|x|** : ใส่ค่าสัมบูรณ์ เช่น `|-5|` -> 5")
-    st.caption("• **√** : กดปุ่ม `√` แล้วพิมพ์ตัวเลขพร้อมปิดวงเล็บ")
-    st.caption("• **^** : คือยกกำลัง เช่น `2**3` -> 8")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("0", use_container_width=True, on_click=calc_append, args=("0",))
+        c2.button(".", use_container_width=True, on_click=calc_append, args=(".",))
+        c3.button("%", use_container_width=True, on_click=calc_append, args=("%",))
+        c4.button("^", use_container_width=True, on_click=calc_append, args=("**",))
+
+        st.button("=", type="primary", use_container_width=True, on_click=calc_eval)
+
+        st.markdown("---")
+        st.caption("💡 **วิธีใช้ปุ่มพิเศษ:**")
+        st.caption("• **|x|** : ใส่ค่าสัมบูรณ์ เช่น `|-5|` -> 5")
+        st.caption("• **√** : กดปุ่ม `√` แล้วพิมพ์ตัวเลขพร้อมปิดวงเล็บ")
+        st.caption("• **^** : คือยกกำลัง เช่น `2**3` -> 8")
+
+    return st.session_state.calc_expr
+
+
+render_calculator()
 
 # =========================================================
 # MAIN CONTENT: AI CALCULAI (Ox Alpha System)
