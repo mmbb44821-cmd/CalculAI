@@ -142,17 +142,108 @@ st.markdown("""
         transform: translateY(-1px);
     }
 
-    /* Inputs */
-    .stTextInput input, .stTextArea textarea {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        border-radius: 12px !important;
-        color: #f1f5f9 !important;
+    /* Kill the default red focus/accent color everywhere */
+    :root {
+        --primary-color: #7c3aed !important;
     }
-    .stSelectbox div[data-baseweb="select"] > div {
-        background: rgba(255,255,255,0.04) !important;
+    *:focus, *:focus-visible {
+        outline-color: #7c3aed !important;
+        box-shadow: none !important;
+    }
+
+    /* Text inputs & textareas */
+    .stTextInput input, .stTextArea textarea {
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
         border-radius: 12px !important;
+        color: #f8fafc !important;
+        caret-color: #a78bfa !important;
+    }
+    .stTextInput input::placeholder, .stTextArea textarea::placeholder {
+        color: #64748b !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #7c3aed !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+    }
+
+    /* Selectbox (closed state) */
+    div[data-baseweb="select"] > div {
+        background: rgba(255,255,255,0.05) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+        color: #f8fafc !important;
+    }
+    div[data-baseweb="select"] * {
+        color: #f8fafc !important;
+        fill: #f8fafc !important;
+    }
+    div[data-baseweb="select"]:focus-within > div {
+        border-color: #7c3aed !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+    }
+
+    /* Selectbox dropdown menu (rendered in a portal) */
+    div[data-baseweb="popover"] div[data-baseweb="menu"],
+    ul[data-baseweb="menu"] {
+        background: #150f28 !important;
         border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.55) !important;
+    }
+    div[data-baseweb="popover"] li,
+    ul[data-baseweb="menu"] li {
+        color: #e2e8f0 !important;
+        font-family: 'Kanit', system-ui, sans-serif !important;
+    }
+    div[data-baseweb="popover"] li:hover,
+    ul[data-baseweb="menu"] li:hover,
+    li[aria-selected="true"] {
+        background: rgba(124,58,237,0.28) !important;
+        color: #ffffff !important;
+    }
+
+    /* Checkbox */
+    .stCheckbox label span[data-testid="stMarkdownContainer"] p {
+        color: #e2e8f0 !important;
+        font-size: 0.95rem;
+    }
+    .stCheckbox [data-baseweb="checkbox"] div:first-child {
+        background: rgba(255,255,255,0.06) !important;
+        border-color: rgba(255,255,255,0.28) !important;
+        border-radius: 6px !important;
+    }
+    .stCheckbox [aria-checked="true"] div:first-child {
+        background: linear-gradient(135deg, #7c3aed, #2563eb) !important;
+        border-color: transparent !important;
+    }
+
+    /* Slider */
+    div[data-testid="stSlider"] [data-baseweb="slider"] > div > div {
+        background: rgba(255,255,255,0.12) !important;
+    }
+    div[data-testid="stSlider"] [data-baseweb="slider"] > div > div > div {
+        background: linear-gradient(90deg, #7c3aed, #2563eb) !important;
+    }
+    div[data-testid="stSlider"] [role="slider"] {
+        background: #ffffff !important;
+        border: 3px solid #7c3aed !important;
+        box-shadow: 0 0 0 4px rgba(124,58,237,0.22) !important;
+    }
+    div[data-testid="stSlider"] [data-testid="stTickBar"] {
+        color: #64748b !important;
+    }
+    div[data-testid="stThumbValue"] {
+        color: #c4b5fd !important;
+        font-weight: 600 !important;
+    }
+
+    /* Labels & captions */
+    label, .stMarkdown p, .stCaption, [data-testid="stWidgetLabel"] p {
+        color: #cbd5e1 !important;
+    }
+    [data-testid="stCaptionContainer"] p {
+        color: #7c8aa5 !important;
     }
 
     /* Sidebar */
@@ -161,12 +252,31 @@ st.markdown("""
         border-right: 1px solid rgba(255,255,255,0.06);
     }
 
+    /* Expander */
+    .streamlit-expanderHeader, [data-testid="stExpander"] summary {
+        background: rgba(255,255,255,0.04) !important;
+        border-radius: 10px !important;
+        color: #e2e8f0 !important;
+    }
+    [data-testid="stExpander"] {
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 12px !important;
+        background: rgba(255,255,255,0.02) !important;
+    }
+
+    /* Alerts (warning/error/success) keep readable text */
+    div[data-testid="stAlert"] p {
+        color: #f1f5f9 !important;
+    }
+
     .example-caption {
         color: #94a3b8;
         font-size: 0.88rem;
         margin-bottom: 6px;
         font-weight: 300;
     }
+
+    hr { border-color: rgba(255,255,255,0.08) !important; }
 </style>
 """, unsafe_allow_html=True)
 
