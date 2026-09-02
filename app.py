@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import streamlit.components.v1 as components
 from google import genai
@@ -211,26 +212,57 @@ if not api_key:
 # เชื่อมต่อ Client ไปยัง Google Gemini API
 client = genai.Client(api_key=api_key)
 
-# ชื่อโมเดล Gemini ที่ใช้งาน
-# หมายเหตุ: เปลี่ยนมาใช้ gemini-2.0-flash เนื่องจาก gemini-3.6-flash พบปัญหา
-# 503 UNAVAILABLE (โหลดสูง/คนใช้งานเยอะ) บ่อย ถ้าต้องการกลับไปใช้รุ่นอื่น
-# แก้ค่าตัวแปรนี้ตัวเดียวได้เลย
-GEMINI_MODEL = "gemini-2.0-flash"
+# รายชื่อโมเดล Gemini เรียงตามลำดับที่จะลองใช้ (โมเดลแรกคือตัวหลัก)
+# ถ้าตัวหลักเจอปัญหา (โมเดลถูกปิด/โหลดสูง) ระบบจะไล่ลองตัวถัดไปให้อัตโนมัติ
+# อัปเดตรายชื่อนี้เมื่อ Google ประกาศเปลี่ยนรุ่นโมเดลในอนาคต
+GEMINI_MODELS = [
+    "gemini-3.6-flash",   # รุ่นล่าสุด (แนะนำโดย Gemini API เอง)
+    "gemini-2.5-flash",   # รุ่นสำรอง ยังใช้งานได้ถึง ต.ค. 2026
+]
+
+MAX_RETRIES_PER_MODEL = 2   # จำนวนครั้งที่ลองใหม่ต่อโมเดล เมื่อเจอ 503 (โหลดสูงชั่วคราว)
+RETRY_DELAY_SECONDS = 2     # เวลาหน่วงก่อนลองใหม่ (วินาที)
 
 def generate_response(prompt_text):
-    try:
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt_text,
-            config=types.GenerateContentConfig(
-                system_instruction="คุณคือครูสอนคณิตศาสตร์อัจฉริยะ แสดงวิธีทำและอธิบายขั้นตอนการแก้โจทย์อย่างเป็นระบบ เข้าใจง่าย",
-                temperature=0.3,
-            )
-        )
-        return response.text
-    except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการเรียกใช้ Gemini API: {e}")
-        return None
+    last_error = None
+
+    for model_name in GEMINI_MODELS:
+        for attempt in range(1, MAX_RETRIES_PER_MODEL + 1):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt_text,
+                    config=types.GenerateContentConfig(
+                        system_instruction="คุณคือครูสอนคณิตศาสตร์อัจฉริยะ แสดงวิธีทำและอธิบายขั้นตอนการแก้โจทย์อย่างเป็นระบบ เข้าใจง่าย",
+                        temperature=0.3,
+                    )
+                )
+                return response.text
+            except Exception as e:
+                last_error = e
+                error_text = str(e)
+
+                # 404 = โมเดลนี้ถูกปิด/ไม่มีแล้ว -> ข้ามไปโมเดลถัดไปทันที ไม่ต้อง retry ซ้ำ
+                if "404" in error_text or "NOT_FOUND" in error_text:
+                    break
+
+                # 503 = โหลดสูงชั่วคราว -> รอสักครู่แล้วลองโมเดลเดิมใหม่
+                if "503" in error_text or "UNAVAILABLE" in error_text:
+                    if attempt < MAX_RETRIES_PER_MODEL:
+                        time.sleep(RETRY_DELAY_SECONDS)
+                        continue
+                    else:
+                        break
+
+                # ข้อผิดพลาดประเภทอื่น (เช่น API key ผิด) -> ไม่มีประโยชน์ที่จะลองโมเดลอื่น
+                st.error(f"เกิดข้อผิดพลาดในการเรียกใช้ Gemini API: {e}")
+                return None
+
+    st.error(
+        f"ไม่สามารถเรียกใช้ Gemini API ได้ในขณะนี้ (ลองครบทุกโมเดลแล้ว): {last_error}\n\n"
+        "ลองใหม่อีกครั้งในอีกสักครู่ หรือตรวจสอบรายชื่อโมเดลล่าสุดที่ Google รองรับ"
+    )
+    return None
 
 # แท็บตัวเลือกการใช้งาน AI
 tab1, tab2, tab3 = st.tabs([
