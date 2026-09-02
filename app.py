@@ -211,8 +211,11 @@ if not api_key:
 # เชื่อมต่อ Client ไปยัง Google Gemini API
 client = genai.Client(api_key=api_key)
 
-# ชื่อโมเดล Gemini ที่ใช้งาน (อัปเดตแล้ว เนื่องจาก gemini-2.5-flash ถูกปลดระวาง)
-GEMINI_MODEL = "gemini-3.6-flash"
+# ชื่อโมเดล Gemini ที่ใช้งาน
+# หมายเหตุ: เปลี่ยนมาใช้ gemini-2.0-flash เนื่องจาก gemini-3.6-flash พบปัญหา
+# 503 UNAVAILABLE (โหลดสูง/คนใช้งานเยอะ) บ่อย ถ้าต้องการกลับไปใช้รุ่นอื่น
+# แก้ค่าตัวแปรนี้ตัวเดียวได้เลย
+GEMINI_MODEL = "gemini-2.0-flash"
 
 def generate_response(prompt_text):
     try:
