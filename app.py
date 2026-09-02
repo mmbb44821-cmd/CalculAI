@@ -212,21 +212,61 @@ if not api_key:
 # เชื่อมต่อ Client ไปยัง Google Gemini API
 client = genai.Client(api_key=api_key)
 
-# รายชื่อโมเดล Gemini เรียงตามลำดับที่จะลองใช้ (โมเดลแรกคือตัวหลัก)
-# ถ้าตัวหลักเจอปัญหา (โมเดลถูกปิด/โหลดสูง) ระบบจะไล่ลองตัวถัดไปให้อัตโนมัติ
-# อัปเดตรายชื่อนี้เมื่อ Google ประกาศเปลี่ยนรุ่นโมเดลในอนาคต
-GEMINI_MODELS = [
-    "gemini-3.6-flash",   # รุ่นล่าสุด (แนะนำโดย Gemini API เอง)
-    "gemini-2.5-flash",   # รุ่นสำรอง ยังใช้งานได้ถึง ต.ค. 2026
+
+# โมเดลที่ต้องการใช้เป็นอันดับแรก (ถ้ามีอยู่จริงในรายชื่อที่ API คืนมา)
+PREFERRED_MODEL_ORDER = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
 ]
 
-MAX_RETRIES_PER_MODEL = 2   # จำนวนครั้งที่ลองใหม่ต่อโมเดล เมื่อเจอ 503 (โหลดสูงชั่วคราว)
-RETRY_DELAY_SECONDS = 2     # เวลาหน่วงก่อนลองใหม่ (วินาที)
+MAX_RETRIES_PER_MODEL = 3       # จำนวนครั้งที่ลองใหม่ต่อโมเดล เมื่อเจอ 503 (โหลดสูงชั่วคราว)
+RETRY_DELAY_SECONDS = 3         # เวลาหน่วงก่อนลองใหม่ (วินาที) - เพิ่มขึ้นทุกครั้งที่ retry (backoff)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_available_models(_client):
+    """
+    ดึงรายชื่อโมเดลที่ใช้งานได้จริงจาก Gemini API ณ ขณะนี้ (ไม่ hardcode)
+    เพื่อให้แอปปรับตัวอัตโนมัติเมื่อ Google เปลี่ยน/ปิดโมเดล
+    คืนค่าเป็น list ของชื่อโมเดลที่รองรับ generateContent
+    """
+    try:
+        models = _client.models.list()
+        names = []
+        for m in models:
+            actions = getattr(m, "supported_actions", None) or getattr(m, "supported_generation_methods", None) or []
+            model_name = m.name.replace("models/", "") if hasattr(m, "name") else str(m)
+            # ถ้าไม่มีข้อมูล action ให้เก็บไว้ก่อน (บาง SDK version ไม่คืนฟิลด์นี้)
+            if not actions or "generateContent" in actions:
+                names.append(model_name)
+        return names
+    except Exception:
+        return []
+
+
+def build_model_priority_list(client_instance):
+    """
+    รวมโมเดลที่ต้องการ (PREFERRED_MODEL_ORDER) เข้ากับรายชื่อโมเดลจริงที่ API มีให้
+    ลำดับ: โมเดลที่ต้องการก่อน (ถ้ามีจริง) -> ตามด้วยโมเดล flash อื่นๆ ที่เหลือ (กันเหนียว)
+    """
+    available = get_available_models(client_instance)
+
+    if not available:
+        # ถ้าดึงรายชื่อไม่ได้ (เช่น เน็ตมีปัญหา) ให้ fallback ไปใช้ลิสต์ที่กำหนดไว้ตรงๆ
+        return PREFERRED_MODEL_ORDER
+
+    ordered = [m for m in PREFERRED_MODEL_ORDER if m in available]
+    extras = [m for m in available if "flash" in m.lower() and m not in ordered]
+    result = ordered + extras
+    return result if result else available
+
 
 def generate_response(prompt_text):
     last_error = None
+    model_list = build_model_priority_list(client)
 
-    for model_name in GEMINI_MODELS:
+    for model_name in model_list:
         for attempt in range(1, MAX_RETRIES_PER_MODEL + 1):
             try:
                 response = client.models.generate_content(
@@ -246,10 +286,10 @@ def generate_response(prompt_text):
                 if "404" in error_text or "NOT_FOUND" in error_text:
                     break
 
-                # 503 = โหลดสูงชั่วคราว -> รอสักครู่แล้วลองโมเดลเดิมใหม่
+                # 503 = โหลดสูงชั่วคราว -> รอสักครู่ (เพิ่มเวลารอทุกครั้ง) แล้วลองโมเดลเดิมใหม่
                 if "503" in error_text or "UNAVAILABLE" in error_text:
                     if attempt < MAX_RETRIES_PER_MODEL:
-                        time.sleep(RETRY_DELAY_SECONDS)
+                        time.sleep(RETRY_DELAY_SECONDS * attempt)
                         continue
                     else:
                         break
@@ -259,10 +299,21 @@ def generate_response(prompt_text):
                 return None
 
     st.error(
-        f"ไม่สามารถเรียกใช้ Gemini API ได้ในขณะนี้ (ลองครบทุกโมเดลแล้ว): {last_error}\n\n"
-        "ลองใหม่อีกครั้งในอีกสักครู่ หรือตรวจสอบรายชื่อโมเดลล่าสุดที่ Google รองรับ"
+        f"ไม่สามารถเรียกใช้ Gemini API ได้ในขณะนี้ (ลองครบทุกโมเดลที่มีแล้ว): {last_error}\n\n"
+        "สาเหตุที่เป็นไปได้: บัญชี/API key นี้อาจยังไม่รองรับโมเดลรุ่นล่าสุด "
+        "ลองตรวจสอบสิทธิ์การใช้งานที่ Google AI Studio หรือสร้าง API key ใหม่"
     )
     return None
+
+with st.expander("🔍 ตรวจสอบโมเดลที่ API key นี้ใช้งานได้ (สำหรับ debug)"):
+    if st.button("ดึงรายชื่อโมเดลล่าสุด"):
+        st.cache_data.clear()
+    _available_models = get_available_models(client)
+    if _available_models:
+        st.write("โมเดลที่ API key นี้เข้าถึงได้:")
+        st.code("\n".join(_available_models))
+    else:
+        st.write("ไม่สามารถดึงรายชื่อโมเดลได้ในขณะนี้ (จะใช้รายชื่อสำรองที่ตั้งไว้ในโค้ดแทน)")
 
 # แท็บตัวเลือกการใช้งาน AI
 tab1, tab2, tab3 = st.tabs([
