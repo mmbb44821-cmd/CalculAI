@@ -151,13 +151,13 @@ def render_calculator():
             if (!expr) return;
             try {
                 const safeExpr = normalizeExpression(expr);
-                
+
                 if (/[^0-9\+\-\*\/\%\.\(\)\,\sMathsqrtabsfactorial]/.test(safeExpr.replace(/factorial|Math\.sqrt|Math\.abs/g, ''))) {
                     throw new Error("Invalid characters detected");
                 }
 
                 const result = Function('factorial', 'Math', `return (${safeExpr});`)(factorial, Math);
-                
+
                 if (!isFinite(result) || isNaN(result)) {
                     setDisplay('Error');
                     return;
@@ -211,10 +211,13 @@ if not api_key:
 # เชื่อมต่อ Client ไปยัง Google Gemini API
 client = genai.Client(api_key=api_key)
 
+# ชื่อโมเดล Gemini ที่ใช้งาน (อัปเดตแล้ว เนื่องจาก gemini-2.5-flash ถูกปลดระวาง)
+GEMINI_MODEL = "gemini-3.6-flash"
+
 def generate_response(prompt_text):
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt_text,
             config=types.GenerateContentConfig(
                 system_instruction="คุณคือครูสอนคณิตศาสตร์อัจฉริยะ แสดงวิธีทำและอธิบายขั้นตอนการแก้โจทย์อย่างเป็นระบบ เข้าใจง่าย",
@@ -228,8 +231,8 @@ def generate_response(prompt_text):
 
 # แท็บตัวเลือกการใช้งาน AI
 tab1, tab2, tab3 = st.tabs([
-    "💬 แชทถาม-ตอบ & แก้โจทย์", 
-    "🎯 เครื่องมือสร้างโจทย์ (ตามระดับ/เรื่อง)", 
+    "💬 แชทถาม-ตอบ & แก้โจทย์",
+    "🎯 เครื่องมือสร้างโจทย์ (ตามระดับ/เรื่อง)",
     "🪄 สร้างโจทย์ด้วยพรอมต์อิสระ"
 ])
 
@@ -237,7 +240,7 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.write("💡 **ลองกดถามโจทย์ตัวอย่าง:**")
     col1, col2, col3 = st.columns(3)
-    
+
     if "chat_input" not in st.session_state:
         st.session_state.chat_input = ""
 
@@ -249,7 +252,7 @@ with tab1:
         st.session_state.chat_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
     user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", key="chat_input")
-    
+
     if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
         if user_query.strip():
             with st.spinner("Gemini กำลังประมวลผลคำตอบ..."):
@@ -258,7 +261,7 @@ with tab1:
                     st.markdown("### 📝 คำตอบและวิธีทำ:")
                     st.write(output)
         else:
-                    st.warning("กรุณากรอกโจทย์คณิตศาสตร์ก่อนส่งคำถามครับ")
+            st.warning("กรุณากรอกโจทย์คณิตศาสตร์ก่อนส่งคำถามครับ")
 
 # TAB 2: STRUCTURED GENERATOR
 with tab2:
