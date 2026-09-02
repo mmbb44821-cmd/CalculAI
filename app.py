@@ -167,6 +167,22 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
     }
 
+    /* แก้ตัวอักษรในช่องพิมพ์เป็นสีดำมองไม่เห็น: บังคับ -webkit-text-fill-color
+       เพราะเบราว์เซอร์บางตัว (Chrome/Edge) ใช้ค่านี้แทน color เวลาพิมพ์/ตอน autofill
+       ทำให้ตัวหนังสือกลายเป็นสีดำ (ค่า default) มองไม่เห็นบนพื้นหลังเข้ม */
+    .stTextInput input, .stTextArea textarea,
+    [data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea {
+        -webkit-text-fill-color: #f8fafc !important;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill {
+        -webkit-text-fill-color: #f8fafc !important;
+        -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.05) inset !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+
     /* Selectbox (closed state) */
     div[data-baseweb="select"] > div {
         background: rgba(255,255,255,0.05) !important;
