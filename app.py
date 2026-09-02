@@ -277,6 +277,35 @@ st.markdown("""
     }
 
     hr { border-color: rgba(255,255,255,0.08) !important; }
+
+    /* ===== FORCE ALL TEXT WHITE (except placeholder examples) ===== */
+    .stApp, .stApp p, .stApp span, .stApp div, .stApp label, .stApp li,
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+    .stMarkdown, .stMarkdown p, [data-testid="stMarkdownContainer"] p,
+    [data-testid="stWidgetLabel"] p, [data-testid="stCaptionContainer"] p,
+    .stTabs [data-baseweb="tab"], .stTabs [data-baseweb="tab"] p,
+    .stButton>button, .stButton>button p,
+    .badge, .hero-sub, .example-caption, .answer-label,
+    div[data-testid="stAlert"] p,
+    .streamlit-expanderHeader, [data-testid="stExpander"] summary, [data-testid="stExpander"] summary p,
+    div[data-baseweb="select"] *, ul[data-baseweb="menu"] li, div[data-baseweb="popover"] li,
+    .stCheckbox label span[data-testid="stMarkdownContainer"] p,
+    section[data-testid="stSidebar"] *,
+    code, .stCode, pre, .stCode code {
+        color: #ffffff !important;
+    }
+
+    /* Placeholder / example text stays muted so it's visually distinct from real input */
+    .stTextInput input::placeholder,
+    .stTextArea textarea::placeholder {
+        color: #8b93a7 !important;
+        opacity: 1 !important;
+    }
+
+    /* Keep the gradient hero title readable (needs transparent color to show gradient) */
+    p.hero-title {
+        color: transparent !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
