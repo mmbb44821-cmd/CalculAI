@@ -4,12 +4,171 @@ import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 
-# ตั้งค่าหน้าเว็บ Streamlit
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 st.set_page_config(
     page_title="CalculAI - ผู้ช่วยคณิตศาสตร์",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+# =========================================================
+# GLOBAL STYLES
+# =========================================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Kanit', system-ui, sans-serif;
+    }
+
+    /* Hide default Streamlit chrome */
+    #MainMenu, footer, header {visibility: hidden;}
+
+    .stApp {
+        background: radial-gradient(circle at 10% 0%, #1b1035 0%, #0b0f24 45%, #05070f 100%);
+    }
+
+    /* Hero header */
+    .hero-wrap {
+        background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(37,99,235,0.18));
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 22px;
+        padding: 28px 32px;
+        margin-bottom: 22px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .hero-title {
+        font-size: 2.1rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin: 0;
+    }
+    .hero-sub {
+        color: #cbd5e1;
+        font-size: 1.02rem;
+        margin-top: 6px;
+        font-weight: 300;
+    }
+    .hero-badges { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+        display: inline-block;
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #e2e8f0;
+    }
+
+    /* Section / glass cards */
+    .glass-card {
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+        backdrop-filter: blur(6px);
+    }
+
+    /* Answer box */
+    .answer-box {
+        background: linear-gradient(135deg, rgba(52,211,153,0.10), rgba(96,165,250,0.08));
+        border: 1px solid rgba(52,211,153,0.28);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-top: 14px;
+    }
+    .answer-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        color: #34d399;
+        font-size: 0.95rem;
+        margin-bottom: 10px;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: rgba(255,255,255,0.03);
+        padding: 6px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 46px;
+        border-radius: 10px;
+        color: #94a3b8;
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #7c3aed, #2563eb) !important;
+        color: white !important;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.04);
+        color: #e2e8f0;
+        font-weight: 500;
+        padding: 8px 16px;
+        transition: all 0.15s ease;
+    }
+    .stButton>button:hover {
+        border-color: #7c3aed;
+        color: #c4b5fd;
+        transform: translateY(-1px);
+    }
+    .stButton>button[kind="primary"] {
+        background: linear-gradient(135deg, #7c3aed, #2563eb);
+        border: none;
+        color: white;
+        box-shadow: 0 6px 18px rgba(124,58,237,0.35);
+    }
+    .stButton>button[kind="primary"]:hover {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+    }
+
+    /* Inputs */
+    .stTextInput input, .stTextArea textarea {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 12px !important;
+        color: #f1f5f9 !important;
+    }
+    .stSelectbox div[data-baseweb="select"] > div {
+        background: rgba(255,255,255,0.04) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #12081f 0%, #0a0e1c 100%);
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .example-caption {
+        color: #94a3b8;
+        font-size: 0.88rem;
+        margin-bottom: 6px;
+        font-weight: 300;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # =========================================================
 # CLIENT-SIDE CALCULATOR (browser only)
@@ -17,29 +176,30 @@ st.set_page_config(
 def render_calculator():
     calc_html = """
     <style>
-        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { margin: 0; font-family: 'Kanit', system-ui, sans-serif; }
         .calc-shell {
-            background: #111827;
-            border-radius: 16px;
-            padding: 14px;
+            background: linear-gradient(160deg, #16112b, #0d0f1f);
+            border-radius: 18px;
+            padding: 16px;
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.35);
             max-width: 330px;
             margin: 0 auto;
         }
         .calc-display {
             width: 100%;
-            background: #0f172a;
+            background: #05070f;
             color: #f8fafc;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 12px 14px;
-            font-size: 1.2rem;
+            border: 1px solid rgba(124,58,237,0.35);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 1.35rem;
             text-align: right;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
             box-sizing: border-box;
-            min-height: 52px;
+            min-height: 56px;
             outline: none;
+            font-family: 'Kanit', monospace;
         }
         .calc-grid {
             display: grid;
@@ -48,19 +208,23 @@ def render_calculator():
         }
         .calc-btn {
             border: none;
-            border-radius: 10px;
-            padding: 12px 8px;
+            border-radius: 12px;
+            padding: 13px 8px;
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 600;
             cursor: pointer;
-            background: #1f2937;
-            color: white;
-            transition: background 0.2s, transform 0.1s;
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            transition: background 0.15s, transform 0.08s;
         }
-        .calc-btn.operator { background: #374151; }
-        .calc-btn.primary { background: #2563eb; }
-        .calc-btn:hover { filter: brightness(1.15); }
-        .calc-btn:active { transform: scale(0.96); }
+        .calc-btn.operator { background: rgba(124,58,237,0.25); color: #c4b5fd; }
+        .calc-btn.primary {
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            color: white;
+            box-shadow: 0 6px 16px rgba(124,58,237,0.4);
+        }
+        .calc-btn:hover { filter: brightness(1.2); }
+        .calc-btn:active { transform: scale(0.94); }
     </style>
 
     <div class="calc-shell">
@@ -134,13 +298,13 @@ def render_calculator():
 
         function normalizeExpression(input) {
             let safeExpr = input.replace(/×/g, '*').replace(/÷/g, '/');
-            safeExpr = safeExpr.replace(/√\(/g, 'Math.sqrt(');
+            safeExpr = safeExpr.replace(/√\\(/g, 'Math.sqrt(');
             safeExpr = safeExpr.replace(/%/g, '/100');
-            safeExpr = safeExpr.replace(/(\d+)!/g, (_, n) => `factorial(${n})`);
-            safeExpr = safeExpr.replace(/\|([^|]+)\|/g, (_, val) => `Math.abs(${val})`);
+            safeExpr = safeExpr.replace(/(\\d+)!/g, (_, n) => `factorial(${n})`);
+            safeExpr = safeExpr.replace(/\\|([^|]+)\\|/g, (_, val) => `Math.abs(${val})`);
 
-            const openParen = (safeExpr.match(/\(/g) || []).length;
-            const closeParen = (safeExpr.match(/\)/g) || []).length;
+            const openParen = (safeExpr.match(/\\(/g) || []).length;
+            const closeParen = (safeExpr.match(/\\)/g) || []).length;
             if (openParen > closeParen) {
                 safeExpr += ')'.repeat(openParen - closeParen);
             }
@@ -153,7 +317,7 @@ def render_calculator():
             try {
                 const safeExpr = normalizeExpression(expr);
 
-                if (/[^0-9\+\-\*\/\%\.\(\)\,\sMathsqrtabsfactorial]/.test(safeExpr.replace(/factorial|Math\.sqrt|Math\.abs/g, ''))) {
+                if (/[^0-9\\+\\-\\*\\/\\%\\.\\(\\)\\,\\sMathsqrtabsfactorial]/.test(safeExpr.replace(/factorial|Math\\.sqrt|Math\\.abs/g, ''))) {
                     throw new Error("Invalid characters detected");
                 }
 
@@ -186,24 +350,37 @@ def render_calculator():
     """
 
     with st.sidebar:
-        st.header("🧮 เครื่องคิดเลข")
-        components.html(calc_html, height=520, scrolling=False)
+        st.markdown("### 🧮 เครื่องคิดเลข")
+        st.caption("คำนวณด่วน ๆ ระหว่างทำโจทย์ (ทำงานในเบราว์เซอร์ล้วน)")
+        components.html(calc_html, height=540, scrolling=False)
 
     return "client-side"
 
 render_calculator()
 
 # =========================================================
-# MAIN CONTENT: AI CALCULAI (Google Gemini)
+# HERO HEADER
 # =========================================================
-st.title("⚡ CalculAI (Powered by Google Gemini)")
-st.subheader("ผู้ช่วยแก้โจทย์ & เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ (ป.1 - ม.6)")
+st.markdown("""
+<div class="hero-wrap">
+    <p class="hero-title">⚡ CalculAI</p>
+    <p class="hero-sub">ผู้ช่วยแก้โจทย์ &amp; เครื่องมือสร้างข้อสอบคณิตศาสตร์อัจฉริยะ ตั้งแต่ระดับ ป.1 ถึง ม.6</p>
+    <div class="hero-badges">
+        <span class="badge">🤖 Powered by Google Gemini</span>
+        <span class="badge">📐 แก้โจทย์ทีละขั้นตอน</span>
+        <span class="badge">🎯 สร้างข้อสอบอัตโนมัติ</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ดึง Gemini API Key จาก Streamlit Secrets หรือช่องกรอก
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
 if not api_key:
-    api_key = st.text_input("🔑 ไม่พบ API Key ใน Secrets กรุณาใส่ Google Gemini API Key:", type="password")
+    with st.container():
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        api_key = st.text_input("🔑 ไม่พบ API Key ใน Secrets กรุณาใส่ Google Gemini API Key:", type="password")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if not api_key:
     st.warning("⚠️ กรุณาระบุ Google Gemini API Key ก่อนใช้งานระบบ AI ครับ")
@@ -305,53 +482,62 @@ def generate_response(prompt_text):
     )
     return None
 
-with st.expander("🔍 ตรวจสอบโมเดลที่ API key นี้ใช้งานได้ (สำหรับ debug)"):
-    if st.button("ดึงรายชื่อโมเดลล่าสุด"):
-        st.cache_data.clear()
-    _available_models = get_available_models(client)
-    if _available_models:
-        st.write("โมเดลที่ API key นี้เข้าถึงได้:")
-        st.code("\n".join(_available_models))
-    else:
-        st.write("ไม่สามารถดึงรายชื่อโมเดลได้ในขณะนี้ (จะใช้รายชื่อสำรองที่ตั้งไว้ในโค้ดแทน)")
+with st.sidebar:
+    st.markdown("---")
+    with st.expander("🔍 ตรวจสอบโมเดล (debug)"):
+        if st.button("↻ ดึงรายชื่อโมเดลล่าสุด"):
+            st.cache_data.clear()
+        _available_models = get_available_models(client)
+        if _available_models:
+            st.caption("โมเดลที่ API key นี้เข้าถึงได้:")
+            st.code("\n".join(_available_models))
+        else:
+            st.caption("ไม่สามารถดึงรายชื่อโมเดลได้ในขณะนี้ (จะใช้รายชื่อสำรองที่ตั้งไว้ในโค้ดแทน)")
 
 # แท็บตัวเลือกการใช้งาน AI
 tab1, tab2, tab3 = st.tabs([
-    "💬 แชทถาม-ตอบ & แก้โจทย์",
-    "🎯 เครื่องมือสร้างโจทย์ (ตามระดับ/เรื่อง)",
-    "🪄 สร้างโจทย์ด้วยพรอมต์อิสระ"
+    "💬  แชทถาม-ตอบ & แก้โจทย์",
+    "🎯  สร้างโจทย์ (ตามระดับ/เรื่อง)",
+    "🪄  สร้างโจทย์ด้วยพรอมต์อิสระ",
 ])
 
 # TAB 1: CHAT & SOLVER
 with tab1:
-    st.write("💡 **ลองกดถามโจทย์ตัวอย่าง:**")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown('<p class="example-caption">💡 ลองกดถามโจทย์ตัวอย่าง</p>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
 
     if "chat_input" not in st.session_state:
         st.session_state.chat_input = ""
 
-    if col1.button("📐 แก้สมการ: 4x + 12 = 36"):
+    if col1.button("📐 แก้สมการ: 4x + 12 = 36", use_container_width=True):
         st.session_state.chat_input = "ช่วยแก้สมการ 4x + 12 = 36 แสดงวิธีทำอย่างละเอียด"
-    if col2.button("📊 หาอนุพันธ์: f(x) = 3x² + 5x - 2"):
+    if col2.button("📊 หาอนุพันธ์: f(x) = 3x² + 5x - 2", use_container_width=True):
         st.session_state.chat_input = "ช่วยหาอนุพันธ์ของ f(x) = 3x² + 5x - 2 พร้อมอธิบายสเต็ป"
-    if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5"):
+    if col3.button("🍕 โจทย์ปัญหาเศษส่วน ป.5", use_container_width=True):
         st.session_state.chat_input = "แม่มีเงิน 2,500 บาท ซื้อของไป 3/5 ของเงินทั้งหมด แม่เหลือเงินกี่บาท?"
 
-    user_query = st.text_input("พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", key="chat_input")
+    st.markdown("<br>", unsafe_allow_html=True)
+    user_query = st.text_input("✏️ พิมพ์โจทย์คณิตศาสตร์ตรงนี้...", key="chat_input")
+    send_clicked = st.button("🚀 ส่งคำถาม", type="primary", key="btn_chat")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("ส่งคำถาม", type="primary", key="btn_chat"):
+    if send_clicked:
         if user_query.strip():
             with st.spinner("Gemini กำลังประมวลผลคำตอบ..."):
                 output = generate_response(user_query)
                 if output:
-                    st.markdown("### 📝 คำตอบและวิธีทำ:")
+                    st.markdown('<div class="answer-box">', unsafe_allow_html=True)
+                    st.markdown('<div class="answer-label">📝 คำตอบและวิธีทำ</div>', unsafe_allow_html=True)
                     st.write(output)
+                    st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.warning("กรุณากรอกโจทย์คณิตศาสตร์ก่อนส่งคำถามครับ")
 
 # TAB 2: STRUCTURED GENERATOR
 with tab2:
-    st.markdown("### 🎯 เครื่องมือออกข้อสอบและแบบฝึกหัด")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("#### 🎯 เครื่องมือออกข้อสอบและแบบฝึกหัด")
     col_g, col_d = st.columns(2)
     with col_g:
         grade = st.selectbox("🎓 เลือกระดับชั้น:", [f"ป.{i}" for i in range(1, 7)] + [f"ม.{i}" for i in range(1, 7)])
@@ -360,7 +546,10 @@ with tab2:
         topic = st.text_input("📚 บทเรียน/เรื่องที่ต้องการ:", placeholder="เช่น สมการ, เวกเตอร์, เศษส่วน")
         show_sol = st.checkbox("✅ รวมเฉลยละเอียด", value=True)
 
-    if st.button("🚀 สร้างโจทย์เลย!", use_container_width=True, key="btn_tab2"):
+    gen_clicked = st.button("🚀 สร้างโจทย์เลย!", use_container_width=True, type="primary", key="btn_tab2")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if gen_clicked:
         if not topic.strip():
             st.warning("กรุณากรอกเรื่องที่ต้องการสร้างโจทย์ก่อนครับ")
         else:
@@ -368,19 +557,27 @@ with tab2:
             with st.spinner("Gemini กำลังสร้างชุดโจทย์..."):
                 output = generate_response(prompt_t2)
                 if output:
-                    st.markdown("---")
+                    st.markdown('<div class="answer-box">', unsafe_allow_html=True)
+                    st.markdown('<div class="answer-label">📝 ชุดโจทย์ที่สร้างขึ้น</div>', unsafe_allow_html=True)
                     st.write(output)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 3: CUSTOM PROMPT GENERATOR
 with tab3:
-    st.markdown("### 🪄 สั่งสร้างโจทย์ด้วยคำสั่งอิสระ")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("#### 🪄 สั่งสร้างโจทย์ด้วยคำสั่งอิสระ")
     custom_p = st.text_area("✍️ พิมพ์คำสั่งสร้างโจทย์ที่ต้องการ:", height=120, placeholder="เช่น ออกโจทย์คณิตตลกร้าย 1 ข้อ เรื่องการคำนวณภาษี พร้อมวิธีคิด")
-    if st.button("✨ สร้างโจทย์ตามสั่ง", use_container_width=True, key="btn_tab3"):
+    custom_clicked = st.button("✨ สร้างโจทย์ตามสั่ง", use_container_width=True, type="primary", key="btn_tab3")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if custom_clicked:
         if not custom_p.strip():
             st.warning("กรุณากรอกคำสั่งก่อนครับ")
         else:
             with st.spinner("Gemini กำลังสร้างโจทย์ตามสั่ง..."):
                 output = generate_response(custom_p)
                 if output:
-                    st.markdown("---")
+                    st.markdown('<div class="answer-box">', unsafe_allow_html=True)
+                    st.markdown('<div class="answer-label">📝 ผลลัพธ์</div>', unsafe_allow_html=True)
                     st.write(output)
+                    st.markdown('</div>', unsafe_allow_html=True)
