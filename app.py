@@ -183,6 +183,31 @@ st.markdown("""
         transition: background-color 5000s ease-in-out 0s;
     }
 
+    /* กันเหนียวสุด ๆ: ไม่ว่า Streamlit เวอร์ชันไหนจะเปลี่ยนชื่อ class ยังไง
+       ให้ input/textarea ทุกตัวในแอปนี้ได้ "พื้นหลังเข้ม + ตัวอักษรขาว" มาคู่กันเสมอ
+       เพื่อไม่ให้เกิดกรณีตัวอักษรขาวบนพื้นขาว (มองไม่เห็นตอนพิมพ์) */
+    .stApp textarea,
+    .stApp input[type="text"],
+    .stApp input[type="password"],
+    .stApp input[type="number"],
+    .stApp input[type="search"] {
+        background: rgba(255,255,255,0.06) !important;
+        color: #f8fafc !important;
+        -webkit-text-fill-color: #f8fafc !important;
+        border: 1px solid rgba(255,255,255,0.18) !important;
+        border-radius: 12px !important;
+        caret-color: #a78bfa !important;
+    }
+    .stApp textarea:focus,
+    .stApp input[type="text"]:focus,
+    .stApp input[type="password"]:focus,
+    .stApp input[type="number"]:focus,
+    .stApp input[type="search"]:focus {
+        border-color: #7c3aed !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+        outline: none !important;
+    }
+
     /* Selectbox (closed state) */
     div[data-baseweb="select"] > div {
         background: rgba(255,255,255,0.05) !important;
