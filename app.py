@@ -153,8 +153,9 @@ st.markdown("""
 
     /* Text inputs & textareas */
     .stTextInput input, .stTextArea textarea {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.14) !important;
+        background: rgba(0,0,0,0.45) !important;
+        backdrop-filter: blur(6px) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
         border-radius: 12px !important;
         color: #f8fafc !important;
         caret-color: #a78bfa !important;
@@ -191,10 +192,11 @@ st.markdown("""
     .stApp input[type="password"],
     .stApp input[type="number"],
     .stApp input[type="search"] {
-        background: rgba(255,255,255,0.06) !important;
+        background: rgba(0,0,0,0.45) !important;
+        backdrop-filter: blur(6px) !important;
         color: #f8fafc !important;
         -webkit-text-fill-color: #f8fafc !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
         border-radius: 12px !important;
         caret-color: #a78bfa !important;
     }
